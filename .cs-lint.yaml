@@ -1,0 +1,90 @@
+# The knobs cs-lint reads for this repository.
+#
+# The linters carry no project knowledge. Everything that differs between
+# repositories lives here, so a fix to a check reaches every project without
+# carrying one project's exceptions into the next.
+#
+# Run `cs-lint <linter> --explain` to read what each rule wants. Tune until
+# every reported problem is a real one: a check that cries wolf is worse than
+# no check.
+
+docs:
+  # The domain terms a reader of this project cannot infer. Each must be
+  # introduced where a document first uses it: glossed on the spot, defined in a
+  # glossary table, or linked to the page that defines it. An empty list
+  # disables the most valuable check in the set.
+  glossary:
+    - gate
+    - waiver
+    - leak
+    - router
+    - epigram
+    - elision
+    - family
+
+  # The project's own command name, which starts sentences in lower case.
+  # Without it the splitter reads "Nothing matches. cs-lint exits 1." as one
+  # six-word sentence and reports a length that is not real.
+  lowercaseStarters:
+    - cs-lint
+
+  # Verbs the shared list does not carry. Only what is this project's own
+  # belongs here; an ordinary English verb belongs in the shared list, where
+  # every project gets it.
+  projectVerbs: []
+
+oss:
+  project: cs-lint
+  githubRepo: codesweep-ai/lint
+
+  # True once the repository is public. Published history cannot be rewritten,
+  # so the history rules report as warnings from that point on. Flip this in the
+  # same commit that makes the repository public.
+  published: false
+
+  # This repository ships a binary, so it carries the whole set.
+  docSet:
+    - README.md
+    - INSTALL.md
+    - MANUAL.md
+    - SPEC.md
+    - CONTRIBUTING.md
+    - AGENTS.md
+
+  # ada and grace are the fictional people the tests use.
+  homeAllow: ["user", "you", "name", "runner", "ada", "grace"]
+  emailAllow: ["example.com", "example.org", "example.net", "noreply.github.com"]
+
+  # A linter necessarily contains the patterns it searches for. The leak scan
+  # and the sibling-path scan would otherwise report this tool's own rules as
+  # findings, which is the one case where the pattern is the subject rather than
+  # the evidence.
+  skipPaths:
+    "internal/oss/": "the readiness rules necessarily contain the patterns they search for"
+    "internal/docs/": "the prose rules necessarily contain the words they decline"
+    "internal/walk/": "the claims rules necessarily contain the shapes they match"
+
+  requiredTargets: ["build", "test", "check", "lint", "docs", "oss", "clean"]
+  expectedTargets: ["help", "install", "uninstall", "fmt", "fmt-check", "vet", "deadcode"]
+
+walkthrough:
+  tool: cs-lint
+  toolPath: bin/cs-lint
+
+  # Read-only, offline, and safe to run in a checkout on every gate. A verb that
+  # writes belongs nowhere near this list: a checker that writes can mask the
+  # staleness another gate exists to catch.
+  safeVerbs:
+    - version
+    - docs --list
+    - docs --explain
+    - oss --explain
+    - walkthrough --explain
+
+  # ~/code/my-project is the reader's own repository, and every block that names
+  # it says so in the line above. The path is theirs to supply on purpose.
+  placeholderOK: ["my-project"]
+
+  # goreleaser is optional here: `make build` falls back to `go build` without
+  # it, and INSTALL.md says so.
+  prereqOK: ["goreleaser"]

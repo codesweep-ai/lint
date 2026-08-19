@@ -1,0 +1,7 @@
+# The linters compare recorded sample output against what a command prints
+# today, byte for byte. A checkout on Windows applies core.autocrlf and rewrites
+# every text file to CRLF, so every recorded line gains a carriage return the
+# command never printed and the sample check reports the whole document stale.
+#
+# text=auto still lets git detect and leave binaries alone.
+* text=auto eol=lf

@@ -1,0 +1,113 @@
+# goreleaser config for cs-lint: a CGO_ENABLED=0 static
+# multi-arch binary, checksummed + SBOM'd + cosign-signed releases (supply chain).
+#
+#   goreleaser check                                # validate this file
+#   goreleaser build --single-target --snapshot --clean --output bin/cs-lint
+#   goreleaser release --snapshot --clean           # full local dry-run (dist/)
+#   goreleaser release --clean                      # tagged release (needs a git tag)
+version: 2
+
+project_name: cs-lint
+
+before:
+  hooks:
+    - go mod tidy
+    - go vet ./...
+    - go test ./...
+
+builds:
+  - id: cs-lint
+    main: ./cmd/cs-lint
+    binary: cs-lint
+    env:
+      - CGO_ENABLED=0 # static, no cgo
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/codesweep-ai/lint/internal/cli.Version={{ .Version }}
+    # Linux and macOS, both architectures: darwin/amd64 costs nothing to add and
+    # is what an Intel Mac still needs.
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: "{{ .CommitTimestamp }}" # reproducible builds
+
+archives:
+  - id: cs-lint
+    ids:
+      - cs-lint
+    formats:
+      - tar.gz
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+      - INSTALL.md
+      - MANUAL.md
+      - SPEC.md
+      - CONTRIBUTING.md
+      - LICENSE
+      # And the tuning file, which is a deliverable rather than documentation:
+      # it is the example every project starts from.
+      - src: .cs-lint.yaml
+        info:
+          mode: 0644
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+# Software bill of materials per archive (supply chain). Requires cyclonedx-gomod:
+#   go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest
+sboms:
+  - id: archive
+    artifacts: archive
+    documents:
+      - "{{ .ArtifactName }}.sbom.json"
+    cmd: cyclonedx-gomod
+    args: ["app", "-json", "-output", "$document", "-main", "cmd/cs-lint", "../../.."]
+
+# Keyless cosign signing of the checksums (supply chain). Requires cosign; runs
+# in release mode. Uses ambient OIDC (CI) — set COSIGN_EXPERIMENTAL=1 locally.
+signs:
+  - id: cosign
+    cmd: cosign
+    signature: "${artifact}.sig"
+    certificate: "${artifact}.pem"
+    args:
+      - sign-blob
+      - "--output-signature=${signature}"
+      - "--output-certificate=${certificate}"
+      - "${artifact}"
+      - "--yes"
+    artifacts: checksum
+    output: true
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-snapshot-{{ .ShortCommit }}"
+
+changelog:
+  sort: asc
+  use: git
+  filters:
+    exclude:
+      - "^docs:"
+      - "^chore:"
+      - "^test:"
+      - "merge conflict"
+
+release:
+  draft: true
+  name_template: "cs-lint {{ .Tag }}"
+  header: |
+    ## cs-lint {{ .Tag }}
+
+    Three linters over one repository: how its documents are written, what a
+    published repository owes a reader, and whether the documents still describe
+    the software. Every check is mechanical and quotable.
+
+    Static `CGO_ENABLED=0` binaries; verify with `checksums.txt` (+ cosign `.sig`).

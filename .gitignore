@@ -1,0 +1,25 @@
+# Deliberately not ignored, and committed on purpose: .cs-lint.yaml, which is
+# this repository's own tuning and the example every other project copies.
+
+# The build's own output. Anchored, so a package named bin/ somewhere in the
+# tree is not caught by a rule meant for the root.
+/bin/
+/dist/
+
+# Coverage, which is measured on every test run and is a fact about one run.
+/.coverage/
+/coverage.out
+
+# A local .env is where a credential lands first, and ignoring it is what keeps
+# the next `git add -A` from publishing it.
+/.env
+/.env.*
+
+# Terms no pattern can infer, read by the leak scan. Never committed: a list of
+# what you consider private publishes exactly that.
+/.leakterms
+
+# Editor and OS residue, which reaches a tree through `git add -A`.
+*.swp
+*.swo
+.DS_Store
