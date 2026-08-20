@@ -172,11 +172,13 @@ arrives to find out what the software does. Non-goals and hard limits belong in
 this document, where stating them is the job, so the rule reads only the
 README.*
 
-**R25.** A number stated next to a declared countable **MUST** be reported, and
-an empty list **MUST** disable the check. A number inside a recorded sample
+**R25.** A number stated immediately before a declared countable **MUST** be
+reported, and an empty list **MUST** disable the check. The check **MUST** read
+prose alone: a number a recorded sample, a table, inline code or raw HTML holds
 **MUST NOT** be read as a claim. *A count written into a sentence is right the
 day it is written and wrong by the next commit, with nothing to fail when it
-drifts. What a command printed is the sample check's to hold, not this one's.*
+drifts. What a command printed is the sample check's to hold, not this one's,
+and a number quoted as text is being shown rather than asserted.*
 
 ### 4.5 The readiness linter
 
@@ -262,16 +264,19 @@ wrong in the same way. A skip nobody can review is a scan deleted in private.*
 
 **R45.** Where the tool carries a `manual` verb and the repository carries
 `MANUAL.md`, what the verb prints **MUST** be what the file holds, ignoring a
-trailing newline. A tool without the verb **MUST** report a skip. *The printed
-copy is what a machine with no checkout reads, so a stale binary sends the
-wrong answer to the reader least able to notice.*
+trailing newline. Where the verb, the file or the binary is absent, or the verb
+does not exit zero, the rule **MUST** report a skip. The finding **MUST** name
+the first line that differs. *The printed copy is what a machine with no
+checkout reads, so a stale binary sends the wrong answer to the reader least
+able to notice, and the first differing line is where a rebuild shows its work.*
 
 **R46.** A section citation in the source **MUST** resolve, and a tree it skips
 **MUST** be declared with a reason. The suite **MUST** be read, and no
 `sourceSkip` **MUST** apply. A citation naming no document **MUST** be read
 against the spec, or against the only document that numbers its sections, and
-**MUST** be left alone where neither holds. *A comment in a test misleads its
-next reader as surely as one in production code, and a tree excluded because
+**MUST** be left alone where neither holds. A citation naming a document the
+repository does not carry **MUST** be left alone. *A comment in a test misleads
+its next reader as surely as one in production code, and a tree excluded because
 its settings are another program's still cites this repository's own spec. A
 rule that guesses which document was meant reports a finding nobody can act on.*
 

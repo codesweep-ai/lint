@@ -209,9 +209,11 @@ tables above. The run stops rather than continuing with a knob that does
 nothing.
 
 **`cs-lint: verb list: error parsing regexp: ...`**
+**`cs-lint: countable list: error parsing regexp: ...`**
 
-A `projectVerbs` or `countable` entry is not a valid regular expression. Each entry is a
-pattern fragment, so `mints?` is valid and `mint(` is not.
+A `projectVerbs` entry, or a `countable` one, is not a valid regular
+expression. Each entry is a pattern fragment, so `mints?` is valid and `mint(`
+is not.
 
 **`OSS-306 cannot be read as text, so its contents were never checked`**
 
