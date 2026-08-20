@@ -1,6 +1,7 @@
 package walk
 
 import (
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -536,6 +537,38 @@ var rules = []rule{{
 		return out
 	},
 }, {
+	id: "WALK-403", severity: lint.Error,
+	title: "The manual the binary carries is the manual in the tree",
+	why: "A tool that prints its own manual is the copy a machine with no checkout " +
+		"reads. When the binary is stale the two disagree, and the reader who cannot " +
+		"see the tree is the one getting the wrong answer.",
+	check: func(l *Linter) []lint.Problem {
+		const manual = "MANUAL.md"
+		body, ok := l.text[manual]
+		if !ok {
+			return []lint.Problem{lint.Skipf("WALK-403", "no %s to compare against", manual)}
+		}
+		if l.Binary() == "" {
+			return []lint.Problem{lint.Skipf("WALK-403", "no %s binary to ask", l.Tool())}
+		}
+		if !l.Verbs()["manual"] {
+			return []lint.Problem{lint.Skipf("WALK-403",
+				"`%s manual` is not a verb this tool carries", l.Tool())}
+		}
+		printed, status := l.RunTool("manual")
+		if status != 0 {
+			return []lint.Problem{lint.Skipf("WALK-403", "`%s manual` did not run", l.Tool())}
+		}
+		// A terminal writer may end the stream with a newline the file does
+		// not carry, and that is not drift anybody can act on.
+		if strings.TrimRight(printed, "\n") == strings.TrimRight(body, "\n") {
+			return nil
+		}
+		return []lint.Problem{lint.Errorf("WALK-403",
+			"`%s manual` prints %s, and the binary is stale; rebuild it",
+			l.Tool(), describeDrift(printed, body)).At(manual)}
+	},
+}, {
 	id: "WALK-501", severity: lint.Error,
 	title: "Every tool the build needs is named in a document",
 	why: "A contributor told to run one command, on a machine missing a tool nothing named, " +
@@ -639,4 +672,18 @@ func sectionHeading(section string) *regexp.Regexp {
 // match inside a longer one.
 func namesTool(t string) *regexp.Regexp {
 	return regexp.MustCompile("[`\\s/]" + regexp.QuoteMeta(t) + "[`\\s.,@]")
+}
+
+// describeDrift says how the printed document differs from the file, so the
+// finding is actionable without running a diff. The first differing line is
+// where a reader would start looking, and where a rebuild would show its work.
+func describeDrift(printed, file string) string {
+	p, f := splitLines(printed), splitLines(file)
+	for i := 0; i < len(p) && i < len(f); i++ {
+		if p[i] != f[i] {
+			return fmt.Sprintf("a different line %d: %q, where the file has %q",
+				i+1, lint.Truncate(p[i], 60), lint.Truncate(f[i], 60))
+		}
+	}
+	return fmt.Sprintf("%d lines, where the file has %d", len(p), len(f))
 }

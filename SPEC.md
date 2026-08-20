@@ -254,6 +254,12 @@ document set **MUST** be checked whatever a skip says. *A nested README makes
 the same claim the document set does, and a path it names that has moved is
 wrong in the same way. A skip nobody can review is a scan deleted in private.*
 
+**R44.** Where the tool carries a `manual` verb and the repository carries
+`MANUAL.md`, what the verb prints **MUST** be what the file holds, ignoring a
+trailing newline. A tool without the verb **MUST** report a skip. *The printed
+copy is what a machine with no checkout reads, so a stale binary sends the
+wrong answer to the reader least able to notice.*
+
 ## 5. Data model
 
 ### 5.1 The tuning file

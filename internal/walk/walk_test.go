@@ -1,6 +1,7 @@
 package walk
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -11,6 +12,14 @@ import (
 
 func run(t *testing.T, id string, cfg config.Walkthrough, files map[string]string) []lint.Problem {
 	t.Helper()
+	return runIn(t, id, cfg, linttest.Repo(t, files))
+}
+
+// runIn is run against a repository the caller has already prepared, which is
+// what a rule needing an executable in the tree has to do: linttest writes
+// every file unreadable as a program.
+func runIn(t *testing.T, id string, cfg config.Walkthrough, repo *lint.Repo) []lint.Problem {
+	t.Helper()
 	base := config.Default().Walkthrough
 	if cfg.Docs == nil {
 		cfg.Docs = base.Docs
@@ -18,7 +27,7 @@ func run(t *testing.T, id string, cfg config.Walkthrough, files map[string]strin
 	if cfg.AgentSection == "" {
 		cfg.AgentSection = base.AgentSection
 	}
-	l := New(cfg, linttest.Repo(t, files))
+	l := New(cfg, repo)
 	for _, r := range rules {
 		if r.id == id {
 			return l.runOne(r)
@@ -26,6 +35,25 @@ func run(t *testing.T, id string, cfg config.Walkthrough, files map[string]strin
 	}
 	t.Fatalf("no rule %s", id)
 	return nil
+}
+
+// fakeTool writes a shell script standing in for the built binary: it answers
+// --help with a command list, and prints the manual text given.
+func fakeTool(t *testing.T, files map[string]string, manual string) *lint.Repo {
+	t.Helper()
+	files["bin/tool"] = "#!/bin/sh\ncase \"$1\" in\n" +
+		"manual) printf '%s' " + shellQuote(manual) + " ;;\n" +
+		"*) printf 'Usage: tool\\n\\nAvailable Commands:\\n  manual  print the manual\\n' ;;\n" +
+		"esac\n"
+	repo := linttest.Repo(t, files)
+	if err := os.Chmod(repo.Path("bin/tool"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return repo
+}
+
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 func firstError(problems []lint.Problem) *lint.Problem {
@@ -308,6 +336,40 @@ func TestSafeVerbsAreRequiredBeforeASampleRuns(t *testing.T) {
 	}
 }
 
+func TestEmbeddedManualMatchesTheFile(t *testing.T) {
+	const manual = "# The tool manual\n\nWhat it does.\n"
+	repo := fakeTool(t, map[string]string{"MANUAL.md": manual}, manual)
+	cfg := config.Walkthrough{Tool: "tool", ToolPath: "bin/tool", Docs: []string{"MANUAL.md"}}
+	if got := runIn(t, "WALK-403", cfg, repo); len(got) != 0 {
+		t.Errorf("a matching manual was reported as drift: %v", got)
+	}
+}
+
+func TestEmbeddedManualDriftIsReported(t *testing.T) {
+	// The binary is the copy a machine with no checkout reads, so a stale one
+	// is the reader who cannot see the tree getting the wrong answer.
+	repo := fakeTool(t, map[string]string{"MANUAL.md": "# The tool manual\n\nWhat it does now.\n"},
+		"# The tool manual\n\nWhat it did before.\n")
+	cfg := config.Walkthrough{Tool: "tool", ToolPath: "bin/tool", Docs: []string{"MANUAL.md"}}
+	got := runIn(t, "WALK-403", cfg, repo)
+	if len(got) != 1 || got[0].Severity != lint.Error {
+		t.Fatalf("got %v, want one error", got)
+	}
+	if !strings.Contains(got[0].Message, "line 3") {
+		t.Errorf("finding does not name the first differing line: %s", got[0].Message)
+	}
+}
+
+func TestEmbeddedManualSkipsWithoutTheVerb(t *testing.T) {
+	// A tool that does not carry `manual` has nothing to compare, and that has
+	// to read as a skip rather than as a pass.
+	files := map[string]string{"MANUAL.md": "# m\n"}
+	got := run(t, "WALK-403", config.Walkthrough{Docs: []string{"MANUAL.md"}}, files)
+	if len(got) != 1 || got[0].Severity != lint.Skip {
+		t.Errorf("got %v, want a skip", got)
+	}
+}
+
 func TestEveryRuleIsExplained(t *testing.T) {
 	seen := map[string]bool{}
 	for _, r := range Explain() {
@@ -319,8 +381,8 @@ func TestEveryRuleIsExplained(t *testing.T) {
 			t.Errorf("%s has no title or no reason", r.ID)
 		}
 	}
-	if len(seen) != 14 {
-		t.Errorf("%d rules are registered, want 14", len(seen))
+	if len(seen) != 15 {
+		t.Errorf("%d rules are registered, want 15", len(seen))
 	}
 }
 
