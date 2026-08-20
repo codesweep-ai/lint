@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 
 	"github.com/spf13/cobra"
 
@@ -12,8 +13,26 @@ import (
 	"github.com/codesweep-ai/lint/internal/lint"
 )
 
-// Version is stamped at build time.
-var Version = "dev"
+// devVersion marks a binary that carried no release stamp.
+const devVersion = "dev"
+
+// Version is stamped at build time by the release build.
+var Version = devVersion
+
+// buildVersion reports the release stamp when there is one, and otherwise the
+// module version the toolchain recorded. A binary installed straight from the
+// module path carries no stamp, so without this it would answer "dev" and
+// leave you guessing which revision produced a finding.
+func buildVersion() string {
+	if Version != devVersion {
+		return Version
+	}
+	info, ok := debug.ReadBuildInfo()
+	if !ok || info.Main.Version == "" || info.Main.Version == "(devel)" {
+		return Version
+	}
+	return info.Main.Version
+}
 
 // Exit codes. A gate needs to tell "the repository has a problem" from "the
 // linter could not run", because the first is a finding and the second is a
@@ -76,7 +95,7 @@ func versionCmd() *cobra.Command {
 		Short: "Print the version",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			fmt.Fprintln(cmd.OutOrStdout(), "cs-lint", Version)
+			fmt.Fprintln(cmd.OutOrStdout(), "cs-lint", buildVersion())
 			return nil
 		},
 	}
