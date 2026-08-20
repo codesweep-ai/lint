@@ -148,7 +148,10 @@ func New(cfg config.Docs) (*Linter, error) {
 		verbs:    verbRE,
 	}
 	if len(cfg.Countable) > 0 {
-		l.counted, err = regexp.Compile(`(?i)\b(\d[\d,]{0,6})\s+(` +
+		// The leading class rejects a number that continues one: a heading
+		// numbered "9.1 cassette.yaml" is a section, and reading the "1" out
+		// of it as a count is the rule crying wolf.
+		l.counted, err = regexp.Compile(`(?i)(^|[^\d.,])(\d[\d,]{0,6})\s+(` +
 			strings.Join(cfg.Countable, "|") + `)\b`)
 		if err != nil {
 			return nil, fmt.Errorf("countable list: %w", err)
@@ -563,14 +566,17 @@ func (l *Linter) assertedCounts(text, rel string) []lint.Problem {
 	if l.counted == nil {
 		return nil
 	}
+	// A heading is a label rather than a claim, and a numbered one is where a
+	// section number sits next to the noun the section is about.
+	body := mdtext.StripHeadings(text)
 	var out []lint.Problem
-	for _, m := range l.counted.FindAllStringSubmatchIndex(text, -1) {
-		phrase := text[m[0]:m[1]]
-		noun := text[m[4]:m[5]]
+	for _, m := range l.counted.FindAllStringSubmatchIndex(body, -1) {
+		phrase := strings.TrimSpace(body[m[2]:m[1]])
+		noun := body[m[6]:m[7]]
 		out = append(out, lint.Errorf("DOC-113",
 			"%q states a count that changes without this sentence; name what reports %s instead",
 			phrase, noun).
-			At(fmt.Sprintf("%s:%d", rel, lint.Line(text, m[0]))))
+			At(fmt.Sprintf("%s:%d", rel, lint.Line(body, m[0]))))
 	}
 	return out
 }

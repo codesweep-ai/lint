@@ -439,6 +439,24 @@ func TestACountInASampleIsNotAClaim(t *testing.T) {
 	}
 }
 
+func TestANumberedHeadingIsNotACount(t *testing.T) {
+	// "### 9.1 cassette.yaml" is a section number beside the noun the section
+	// is about, and reading the 1 out of it is the rule crying wolf.
+	cfg := config.Docs{Countable: []string{"cassettes?"}}
+	ids := check(t, cfg, "# D\n\n### 9.1 cassette.yaml\n\nIt holds the versions.\n")
+	if has(ids, "DOC-113") {
+		t.Errorf("a numbered heading was read as a count: %v", ids)
+	}
+}
+
+func TestACountInsideALongerNumberIsNotACount(t *testing.T) {
+	cfg := config.Docs{Countable: []string{"cassettes?"}}
+	ids := check(t, cfg, "Version 9.1 cassettes changed shape.\n")
+	if has(ids, "DOC-113") {
+		t.Errorf("a number continuing another was read as a count: %v", ids)
+	}
+}
+
 func TestAnEmptyCountableListDisablesTheCheck(t *testing.T) {
 	ids := check(t, config.Docs{}, "The suite carries 73 fixtures.\n")
 	if has(ids, "DOC-113") {
