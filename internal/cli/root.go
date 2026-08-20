@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"runtime/debug"
 
 	"github.com/spf13/cobra"
@@ -95,7 +96,8 @@ func versionCmd() *cobra.Command {
 		Short: "Print the version",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			fmt.Fprintln(cmd.OutOrStdout(), "cs-lint", buildVersion())
+			fmt.Fprintf(cmd.OutOrStdout(), "cs-lint %s (%s/%s, %s)\n",
+				buildVersion(), runtime.GOOS, runtime.GOARCH, runtime.Version())
 			return nil
 		},
 	}
