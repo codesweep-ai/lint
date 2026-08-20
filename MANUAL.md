@@ -155,6 +155,7 @@ failure this format is most prone to.
 | `placeholderOK` | empty | Placeholder paths a block may name on purpose. |
 | `prereqOK` | empty | Build tools no document has to name. |
 | `sourceSkip` | empty | Path prefix to why its settings are not this tool's. |
+| `markdownSkip` | empty | Path prefix to why the Markdown under it makes no claim about this repository. |
 | `agentSection` | `Notes for agents` | The manual heading addressed to automated callers. |
 | `allow` | empty | Rule identifier to the reason it is waived. |
 

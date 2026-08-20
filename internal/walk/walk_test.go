@@ -190,6 +190,55 @@ func TestNamedPathMustExist(t *testing.T) {
 	}
 }
 
+func TestNamedPathMustExistOutsideTheDocumentSet(t *testing.T) {
+	// A nested README makes the same claim the document set does, and a path
+	// it names that has moved is wrong in the same way.
+	files := map[string]string{
+		"README.md":             "# x\n",
+		"fixtures/README.md":    "See `internal/gone/file.go`.\n",
+		"internal/real/file.go": "package real\n",
+	}
+	got := run(t, "WALK-302", config.Walkthrough{Docs: []string{"README.md"}}, files)
+	if len(got) != 1 || !strings.Contains(got[0].Message, "internal/gone/file.go") {
+		t.Fatalf("got %v, want one finding from the nested README", got)
+	}
+	if !strings.Contains(got[0].Where, "fixtures/README.md") {
+		t.Errorf("finding is addressed to %q, want the nested README", got[0].Where)
+	}
+}
+
+func TestMarkdownSkipExcludesATreeThatClaimsNothing(t *testing.T) {
+	// Payload shipped somewhere else names paths in the machine it lands on,
+	// not in this repository. A declared prefix says so.
+	files := map[string]string{
+		"README.md":             "# x\n",
+		"image/rootfs/GUIDE.md": "See `internal/gone/file.go`.\n",
+	}
+	cfg := config.Walkthrough{
+		Docs:         []string{"README.md"},
+		MarkdownSkip: map[string]string{"image/": "shipped into the guest, where its paths resolve"},
+	}
+	if got := run(t, "WALK-302", cfg, files); len(got) != 0 {
+		t.Errorf("a declared skip was scanned anyway: %v", got)
+	}
+}
+
+func TestMarkdownSkipCannotHideTheDocumentSet(t *testing.T) {
+	// The document set is the repository's own claim whatever a prefix says,
+	// so a skip that covered it would be a rule deleted in private.
+	files := map[string]string{
+		"docs/README.md":        "See `internal/gone/file.go`.\n",
+		"internal/real/file.go": "package real\n",
+	}
+	cfg := config.Walkthrough{
+		Docs:         []string{"docs/README.md"},
+		MarkdownSkip: map[string]string{"docs/": "a reason that must not reach the document set"},
+	}
+	if got := run(t, "WALK-302", cfg, files); len(got) != 1 {
+		t.Errorf("got %v, want the document set checked regardless of the skip", got)
+	}
+}
+
 func TestASymbolCitationIsNotAPath(t *testing.T) {
 	// package/file.Symbol is a citation of code, not of a path.
 	files := map[string]string{

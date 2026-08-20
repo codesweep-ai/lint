@@ -146,6 +146,42 @@ func (l *Linter) Docs() []string {
 	return out
 }
 
+// Markdown is every tracked Markdown file whose paths are this repository's
+// claim, in the order a scan meets it.
+//
+// The document set is always in it. Everything else is included unless a
+// markdownSkip prefix declares why it is not: payload this repository ships
+// somewhere else, a corpus, a template materialized into a consumer repo, or a
+// page another tool generates. A nested README makes the same claims the doc
+// set does, and a path it names that has moved is wrong in the same way.
+func (l *Linter) Markdown() []string {
+	inSet := map[string]bool{}
+	for _, n := range l.Docs() {
+		inSet[n] = true
+	}
+	out := append([]string(nil), l.Docs()...)
+	for _, name := range l.order {
+		if inSet[name] || !strings.HasSuffix(name, ".md") {
+			continue
+		}
+		if l.skipMarkdown(name) {
+			continue
+		}
+		out = append(out, name)
+	}
+	return out
+}
+
+// skipMarkdown reports whether a declared prefix covers this file.
+func (l *Linter) skipMarkdown(name string) bool {
+	for prefix := range l.cfg.MarkdownSkip {
+		if strings.HasPrefix(name, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 // AllText is every document joined, for the checks that ask only whether a
 // surface is named anywhere.
 //

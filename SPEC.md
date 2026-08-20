@@ -248,6 +248,12 @@ rather than a setting.*
 **R42.** A variable passed to a child process **MUST NOT** be read as a
 setting the tool itself reads.
 
+**R43.** The path check **MUST** read every tracked Markdown file, not only the
+document set, and a tree it skips **MUST** be declared with a reason. The
+document set **MUST** be checked whatever a skip says. *A nested README makes
+the same claim the document set does, and a path it names that has moved is
+wrong in the same way. A skip nobody can review is a scan deleted in private.*
+
 ## 5. Data model
 
 ### 5.1 The tuning file
@@ -289,6 +295,7 @@ walkthrough:
   placeholderOK: []        # placeholder paths a block may name on purpose
   prereqOK: []             # build tools no document has to name
   sourceSkip: {}           # path prefix -> why its settings are not this tool's
+  markdownSkip: {}         # path prefix -> why its Markdown claims nothing here
   agentSection: ""         # the manual heading addressed to automated callers
   allow: {}                # rule id -> why it is waived
 ```

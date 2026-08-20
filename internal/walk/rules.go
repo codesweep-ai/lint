@@ -304,7 +304,9 @@ var rules = []rule{{
 	id: "WALK-302", severity: lint.Error,
 	title: "Every repository path a document names exists",
 	why: "A file that moves leaves the documents pointing at where it was, and nothing " +
-		"fails. The reference is then wrong until somebody happens to read that line.",
+		"fails. The reference is then wrong until somebody happens to read that line. " +
+		"Every tracked Markdown file is read, not only the document set: a nested " +
+		"README makes the same claim, and markdownSkip says which trees make none.",
 	check: func(l *Linter) []lint.Problem {
 		roots := map[string]bool{}
 		for _, p := range l.repo.Tracked() {
@@ -316,7 +318,7 @@ var rules = []rule{{
 		}
 		var out []lint.Problem
 		seen := map[string]bool{}
-		for _, name := range l.Docs() {
+		for _, name := range l.Markdown() {
 			body := l.text[name]
 			for _, m := range pathToken.FindAllStringSubmatch(body, -1) {
 				token := strings.TrimRight(m[1], ".,;:")

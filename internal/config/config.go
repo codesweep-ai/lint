@@ -120,6 +120,11 @@ type Walkthrough struct {
 	PrereqOK []string `yaml:"prereqOK"`
 	// SourceSkip maps a path prefix to why its settings are not this tool's.
 	SourceSkip map[string]string `yaml:"sourceSkip"`
+	// MarkdownSkip maps a path prefix to why the Markdown under it makes no
+	// claim about this repository: payload shipped elsewhere, a corpus, a
+	// template materialized into a consumer repo, or a page another tool
+	// generates. The document set is always checked, whatever this says.
+	MarkdownSkip map[string]string `yaml:"markdownSkip"`
 	// AgentSection is the heading in the manual addressed to automated callers.
 	AgentSection string `yaml:"agentSection"`
 	// Allow waives a rule for this repository, with the reason.
@@ -154,6 +159,7 @@ func Default() *Config {
 			EnvInternal:  map[string]string{},
 			SampleSkip:   map[string]string{},
 			SourceSkip:   map[string]string{},
+			MarkdownSkip: map[string]string{},
 			AgentSection: "Notes for agents",
 			Allow:        map[string]string{},
 		},
