@@ -289,6 +289,75 @@ func TestCitationsResolve(t *testing.T) {
 	}
 }
 
+func TestSourceCitationsResolve(t *testing.T) {
+	files := map[string]string{
+		"SPEC.md":       "# Spec\n\n## 7. The thing\n",
+		"internal/x.go": "package x\n\n// Holds the rule (SPEC.md \u00a77).\n",
+		"internal/y.go": "package y\n\n// Holds the rule (SPEC.md \u00a799.4).\n",
+	}
+	got := run(t, "WALK-304", config.Walkthrough{Docs: []string{"SPEC.md"}}, files)
+	if len(got) != 1 || !strings.Contains(got[0].Message, "99.4") {
+		t.Fatalf("got %v, want one finding naming the section that is not there", got)
+	}
+	if !strings.Contains(got[0].Where, "internal/y.go") {
+		t.Errorf("finding is addressed to %q, want the source file", got[0].Where)
+	}
+}
+
+func TestABareCitationReadsAgainstTheSpec(t *testing.T) {
+	// A comment writing plain §3 means the document that numbers its sections,
+	// which is the spec wherever there is one.
+	files := map[string]string{
+		"SPEC.md":       "# Spec\n\n## 3. The thing\n",
+		"INSTALL.md":    "# Install\n\n## 1. Step\n\n## 9. Step\n",
+		"internal/x.go": "package x\n\n// See \u00a79 for it.\n",
+	}
+	got := run(t, "WALK-304", config.Walkthrough{Docs: []string{"SPEC.md", "INSTALL.md"}}, files)
+	if len(got) != 1 || !strings.Contains(got[0].Message, "SPEC.md has no section 9") {
+		t.Errorf("got %v, want the bare citation read against SPEC.md", got)
+	}
+}
+
+func TestABoldNumberedSubsectionIsASection(t *testing.T) {
+	// A spec numbering its rules as bold lead-ins rather than headings is not
+	// a spec whose citations are all stale.
+	files := map[string]string{
+		"SPEC.md":       "# Spec\n\n## 3. Rules\n\n**3.1 Key order.** It holds.\n",
+		"internal/x.go": "package x\n\n// Ordered (SPEC.md \u00a73.1).\n",
+	}
+	if got := run(t, "WALK-304", config.Walkthrough{Docs: []string{"SPEC.md"}}, files); len(got) != 0 {
+		t.Errorf("a bold-numbered subsection was read as missing: %v", got)
+	}
+}
+
+func TestCitationSkipExcludesADeclaredTree(t *testing.T) {
+	files := map[string]string{
+		"SPEC.md":       "# Spec\n\n## 7. The thing\n",
+		"internal/x.go": "package x\n\n// Quotes SPEC.md \u00a799.4 to explain one.\n",
+	}
+	cfg := config.Walkthrough{
+		Docs:         []string{"SPEC.md"},
+		CitationSkip: map[string]string{"internal/": "the rules quote the citations they match"},
+	}
+	if got := run(t, "WALK-304", cfg, files); len(got) != 0 {
+		t.Errorf("a declared skip was scanned anyway: %v", got)
+	}
+}
+
+func TestABareCitationIsLeftAloneWhenAmbiguous(t *testing.T) {
+	// Two numbered documents and no spec: a rule that guesses which was meant
+	// reports a finding nobody can act on.
+	files := map[string]string{
+		"INSTALL.md":    "# Install\n\n## 1. Step\n",
+		"MANUAL.md":     "# Manual\n\n## 1. Verb\n",
+		"internal/x.go": "package x\n\n// See \u00a799 for it.\n",
+	}
+	got := run(t, "WALK-304", config.Walkthrough{Docs: []string{"INSTALL.md", "MANUAL.md"}}, files)
+	if len(got) != 0 {
+		t.Errorf("an ambiguous bare citation was resolved anyway: %v", got)
+	}
+}
+
 func TestRouterNamesEveryDocument(t *testing.T) {
 	files := map[string]string{
 		"AGENTS.md": "This file routes to [README.md](README.md).\n",
@@ -381,8 +450,8 @@ func TestEveryRuleIsExplained(t *testing.T) {
 			t.Errorf("%s has no title or no reason", r.ID)
 		}
 	}
-	if len(seen) != 15 {
-		t.Errorf("%d rules are registered, want 15", len(seen))
+	if len(seen) != 16 {
+		t.Errorf("%d rules are registered, want 16", len(seen))
 	}
 }
 

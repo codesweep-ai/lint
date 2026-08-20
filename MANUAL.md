@@ -157,6 +157,7 @@ failure this format is most prone to.
 | `prereqOK` | empty | Build tools no document has to name. |
 | `sourceSkip` | empty | Path prefix to why its settings are not this tool's. |
 | `markdownSkip` | empty | Path prefix to why the Markdown under it makes no claim about this repository. |
+| `citationSkip` | empty | Path prefix to why a section number written there is not a citation. |
 | `agentSection` | `Notes for agents` | The manual heading addressed to automated callers. |
 | `allow` | empty | Rule identifier to the reason it is waived. |
 

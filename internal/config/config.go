@@ -130,6 +130,10 @@ type Walkthrough struct {
 	// template materialized into a consumer repo, or a page another tool
 	// generates. The document set is always checked, whatever this says.
 	MarkdownSkip map[string]string `yaml:"markdownSkip"`
+	// CitationSkip maps a path prefix to why a section number written there is
+	// not a citation: a rule that quotes the shape it searches for, or a test
+	// fixture built to be stale on purpose.
+	CitationSkip map[string]string `yaml:"citationSkip"`
 	// AgentSection is the heading in the manual addressed to automated callers.
 	AgentSection string `yaml:"agentSection"`
 	// Allow waives a rule for this repository, with the reason.
@@ -165,6 +169,7 @@ func Default() *Config {
 			SampleSkip:   map[string]string{},
 			SourceSkip:   map[string]string{},
 			MarkdownSkip: map[string]string{},
+			CitationSkip: map[string]string{},
 			AgentSection: "Notes for agents",
 			Allow:        map[string]string{},
 		},

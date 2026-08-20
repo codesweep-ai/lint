@@ -71,6 +71,12 @@ walkthrough:
   tool: cs-lint
   toolPath: bin/cs-lint
 
+  # A linter necessarily contains the shapes it searches for. The rule text
+  # quotes a citation to explain what one is, and the tests build stale ones on
+  # purpose, so neither is a claim about this repository's own spec.
+  citationSkip:
+    "internal/walk/": "the claims rules quote the citations they match, and the tests build stale ones on purpose"
+
   # Read-only, offline, and safe to run in a checkout on every gate. A verb that
   # writes belongs nowhere near this list: a checker that writes can mask the
   # staleness another gate exists to catch.

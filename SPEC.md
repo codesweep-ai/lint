@@ -266,6 +266,19 @@ trailing newline. A tool without the verb **MUST** report a skip. *The printed
 copy is what a machine with no checkout reads, so a stale binary sends the
 wrong answer to the reader least able to notice.*
 
+**R46.** A section citation in the source **MUST** resolve, and a tree it skips
+**MUST** be declared with a reason. The suite **MUST** be read, and no
+`sourceSkip` **MUST** apply. A citation naming no document **MUST** be read
+against the spec, or against the only document that numbers its sections, and
+**MUST** be left alone where neither holds. *A comment in a test misleads its
+next reader as surely as one in production code, and a tree excluded because
+its settings are another program's still cites this repository's own spec. A
+rule that guesses which document was meant reports a finding nobody can act on.*
+
+**R47.** A numbered section **MUST** be recognised as a heading or as a bold
+lead-in. *A spec numbering its rules without adding a level to the table of
+contents is not a spec whose citations are all stale.*
+
 ## 5. Data model
 
 ### 5.1 The tuning file
@@ -309,6 +322,7 @@ walkthrough:
   prereqOK: []             # build tools no document has to name
   sourceSkip: {}           # path prefix -> why its settings are not this tool's
   markdownSkip: {}         # path prefix -> why its Markdown claims nothing here
+  citationSkip: {}         # path prefix -> why a section number there is not a citation
   agentSection: ""         # the manual heading addressed to automated callers
   allow: {}                # rule id -> why it is waived
 ```
@@ -386,7 +400,7 @@ test run and gated at a floor.
 
 ## 8. Conformance
 
-An implementation conforms when it satisfies R1 through R45, and when:
+An implementation conforms when it satisfies R1 through R47, and when:
 
 1. `cs-lint <linter> --explain` prints every rule it carries, with its reason.
 2. Every rule that reports a finding appears in that listing.

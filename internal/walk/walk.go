@@ -172,6 +172,16 @@ func (l *Linter) Markdown() []string {
 	return out
 }
 
+// skipCitations reports whether a declared prefix covers this file.
+func (l *Linter) skipCitations(name string) bool {
+	for prefix := range l.cfg.CitationSkip {
+		if strings.HasPrefix(name, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 // skipMarkdown reports whether a declared prefix covers this file.
 func (l *Linter) skipMarkdown(name string) bool {
 	for prefix := range l.cfg.MarkdownSkip {
@@ -372,8 +382,8 @@ func (l *Linter) Flags() map[string]bool {
 	return out
 }
 
-var sourceExts = []string{".go", ".rs", ".py", ".ts", ".js", ".java", ".rb",
-	".c", ".h", ".cpp", ".sh"}
+var sourceExts = []string{".go", ".rs", ".py", ".ts", ".tsx", ".js", ".jsx",
+	".mjs", ".cjs", ".java", ".rb", ".c", ".h", ".cpp", ".sh"}
 
 // Source yields tracked source files, which is where a setting is really read.
 //
@@ -400,6 +410,62 @@ func (l *Linter) Source(visit func(path, body string)) {
 				visit(path, l.text[path])
 				break
 			}
+		}
+	}
+}
+
+// citedByDefault is the document a bare § is read against, or empty where
+// there is no unambiguous answer.
+//
+// The spec is it wherever there is one, because that is the document a comment
+// citing a section number means. Failing that, a repository with exactly one
+// document that numbers its sections has only one candidate. Anything else is
+// ambiguous, and a rule that guesses which document was meant reports a
+// finding nobody can act on.
+func (l *Linter) citedByDefault() string {
+	var numbered []string
+	for _, name := range l.Docs() {
+		if !numberedSection.MatchString(l.text[name]) {
+			continue
+		}
+		if name == "SPEC.md" {
+			return name
+		}
+		numbered = append(numbered, name)
+	}
+	if len(numbered) == 1 {
+		return numbered[0]
+	}
+	return ""
+}
+
+var numberedSection = regexp.MustCompile(`(?m)^#{2,6}\s+\d+(?:\.\d+)*[.\s]`)
+
+// AllSource yields every tracked source file, the suite included, and honours
+// no sourceSkip.
+//
+// Both differences are deliberate, and both are about citations rather than
+// settings. A comment in a test pointing at a renumbered section misleads its
+// next reader exactly as one in production code does. And a tree excluded
+// because the settings it reads are not this tool's still cites this
+// repository's own spec: the shell scripts a sandbox image ships are the case
+// this was written for, and they carry no file extension either, so a file
+// opening with a shebang counts as source here.
+func (l *Linter) AllSource(visit func(path, body string)) {
+	for _, path := range l.order {
+		if strings.HasPrefix(path, "vendor/") {
+			continue
+		}
+		body := l.text[path]
+		named := false
+		for _, ext := range sourceExts {
+			if strings.HasSuffix(path, ext) {
+				named = true
+				break
+			}
+		}
+		if named || (filepath.Ext(path) == "" && strings.HasPrefix(body, "#!")) {
+			visit(path, body)
 		}
 	}
 }

@@ -11,13 +11,16 @@ import (
 )
 
 var (
-	verbWord    = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
-	flagWord    = regexp.MustCompile(`^--[a-z][a-z0-9-]+$`)
-	pathToken   = regexp.MustCompile("[`\\[(]([\\w.@-]+/[\\w./@-]+)[`\\])]")
-	citation    = regexp.MustCompile(`(\w+\.md)\s*(?:§|section\s+)([\d.]+)`)
-	semver      = regexp.MustCompile(`\b\d+\.\d+\.\d+\b`)
-	commandDash = regexp.MustCompile(`command -v ([\w.-]+)`)
-	shortExt    = regexp.MustCompile(`^[a-z0-9]{1,6}$`)
+	verbWord  = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+	flagWord  = regexp.MustCompile(`^--[a-z][a-z0-9-]+$`)
+	pathToken = regexp.MustCompile("[`\\[(]([\\w.@-]+/[\\w./@-]+)[`\\])]")
+	citation  = regexp.MustCompile(`(\w+\.md)\s*(?:§|section\s+)([\d.]+)`)
+	// The same citation as it appears in source, where the document is often
+	// left out because there is only one that numbers anything.
+	sourceCitation = regexp.MustCompile(`(?:(\w+\.md)\s*)?§\s?([\d.]+)`)
+	semver         = regexp.MustCompile(`\b\d+\.\d+\.\d+\b`)
+	commandDash    = regexp.MustCompile(`command -v ([\w.-]+)`)
+	shortExt       = regexp.MustCompile(`^[a-z0-9]{1,6}$`)
 )
 
 // placeholders are the shapes a path takes when it is the reader's to supply.
@@ -388,6 +391,49 @@ var rules = []rule{{
 		return out
 	},
 }, {
+	id: "WALK-304", severity: lint.Error,
+	title: "Every section citation in the source resolves",
+	why: "A comment reading `SPEC.md §7.2` is useful only while §7.2 says what it " +
+		"said. Renumbering the spec breaks every one at once, silently, and a stale " +
+		"citation sends its next reader to a rule that now means something else. A " +
+		"bare § is read against the spec, which is the document that numbers its " +
+		"sections.",
+	check: func(l *Linter) []lint.Problem {
+		fallback := l.citedByDefault()
+		var out []lint.Problem
+		seen := map[string]bool{}
+		l.AllSource(func(path, body string) {
+			if l.skipCitations(path) {
+				return
+			}
+			for _, m := range sourceCitation.FindAllStringSubmatchIndex(body, -1) {
+				target := fallback
+				if m[2] >= 0 {
+					target = body[m[2]:m[3]]
+				}
+				if target == "" {
+					continue
+				}
+				section := strings.TrimRight(body[m[4]:m[5]], ".")
+				text, ok := l.text[target]
+				if !ok {
+					continue
+				}
+				if sectionHeading(section).MatchString(text) {
+					continue
+				}
+				key := path + "\x00" + target + "\x00" + section
+				if seen[key] {
+					continue
+				}
+				seen[key] = true
+				out = append(out, lint.Errorf("WALK-304", "%s has no section %s", target, section).
+					At(path+":"+strconv.Itoa(lint.Line(body, m[0]))))
+			}
+		})
+		return out
+	},
+}, {
 	id: "WALK-401", severity: lint.Error,
 	title: "A sample output is what the command prints today",
 	why: "Sample output is the half of a document a reader compares their own screen " +
@@ -663,9 +709,15 @@ func wholeWord(w string) *regexp.Regexp {
 	return regexp.MustCompile(`\b` + regexp.QuoteMeta(w) + `\b`)
 }
 
-// sectionHeading matches a numbered heading a citation points at.
+// sectionHeading matches the numbered section a citation points at.
+//
+// A subsection is as often a bold lead-in as a heading: a spec that reads
+// "**3.1 Object key order.**" numbers its rules without adding a level to the
+// table of contents. Matching only headings reports every citation of one as
+// stale, which is a linter calling a correct document wrong.
 func sectionHeading(section string) *regexp.Regexp {
-	return regexp.MustCompile(`(?m)^#{1,6}\s+` + regexp.QuoteMeta(section) + `[.\s]`)
+	q := regexp.QuoteMeta(section)
+	return regexp.MustCompile(`(?m)^(?:#{1,6}\s+` + q + `[.\s]|\*\*` + q + `[.\s])`)
 }
 
 // namesTool matches a tool named in prose, bounded so a short name does not
