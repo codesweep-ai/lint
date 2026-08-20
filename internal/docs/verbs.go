@@ -51,5 +51,6 @@ addresses|source|chafe|climbs?|adopts?|sweeps?|probes?|volunteers?|merges?|
 finds?|hands?|stalls?|head|provide|resolve|exhaust|re-enables?|touch(?:es)?|
 anchors?|wedge|trips?|owes?|rules?|shaped?|simplifying|reintroduces?|
 rebuild|scrape|cycles?|supersedes?|steps?|enforces?|bounds?|generates?|
+suffices?|suffice|
 establish(?:es)?|remain(?:s)?|reflects?|performs?|composes?|states?|become|
 prevent(?:s)?|talks?|talk|supervis(?:e|es|ing)|delegates?|judges?`

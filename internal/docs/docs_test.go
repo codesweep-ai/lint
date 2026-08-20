@@ -346,6 +346,15 @@ func TestAMentionIsNotAFirstUse(t *testing.T) {
 	}
 }
 
+func TestAnOrdinaryVerbNeedsNoProjectEntry(t *testing.T) {
+	// An ordinary English verb belongs in the shared list, where every project
+	// gets it, rather than in one project's projectVerbs.
+	ids := check(t, config.Docs{}, "# D\n\nNeither alone suffices.\n")
+	if has(ids, "DOC-102") {
+		t.Errorf("a real sentence was read as an epigram: %v", ids)
+	}
+}
+
 func TestABulletIsNotASentence(t *testing.T) {
 	if ids := check(t, config.Docs{}, "- one verdict, one remedy\n"); has(ids, "DOC-102") {
 		t.Errorf("a bullet was read as a sentence: %v", ids)
