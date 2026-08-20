@@ -52,7 +52,7 @@ help:
 build:
 	@mkdir -p $(dir $(BIN))
 	@if command -v $(GORELEASER) >/dev/null 2>&1; then \
-		$(GORELEASER) build --single-target --snapshot --clean --output $(BIN); \
+		VERSION='$(VERSION)' $(GORELEASER) build --single-target --snapshot --clean --output $(BIN); \
 	else \
 		echo "goreleaser not found; using go build (run 'make build-go' explicitly to force)"; \
 		$(MAKE) build-go; \
@@ -145,7 +145,7 @@ check: fmt-check vet lint deadcode test coverage-check docs oss walkthrough
 
 ## snapshot: build every release target without publishing
 snapshot:
-	$(GORELEASER) release --snapshot --clean --skip=publish,sign
+	VERSION='$(VERSION)' $(GORELEASER) release --snapshot --clean --skip=publish,sign
 
 ## release-check: validate the release manifest
 release-check:
