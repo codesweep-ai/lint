@@ -172,89 +172,95 @@ arrives to find out what the software does. Non-goals and hard limits belong in
 this document, where stating them is the job, so the rule reads only the
 README.*
 
+**R25.** A number stated next to a declared countable **MUST** be reported, and
+an empty list **MUST** disable the check. A number inside a recorded sample
+**MUST NOT** be read as a claim. *A count written into a sentence is right the
+day it is written and wrong by the next commit, with nothing to fail when it
+drifts. What a command printed is the sample check's to hold, not this one's.*
+
 ### 4.5 The readiness linter
 
-**R25.** Every tracked file **MUST** be scanned, not a chosen subset. *Leaks
+**R26.** Every tracked file **MUST** be scanned, not a chosen subset. *Leaks
 turn up in a fixture, in a golden derived from it, in a rendered page derived
 from the golden, and in a script with a hard-coded path.*
 
-**R26.** A rule whose verdict comes from reading tracked files **MUST** report
+**R27.** A rule whose verdict comes from reading tracked files **MUST** report
 a skip where there are none to read. *A directory git cannot answer for, a
 repository with nothing committed, and one tracking only binary assets all
 leave such a rule inspecting zero files, and silence there is indistinguishable
 from a clean scan.*
 
-**R27.** A tracked file that cannot be read as text **MUST** be reported unless
+**R28.** A tracked file that cannot be read as text **MUST** be reported unless
 its extension is a declared binary asset. *A file nobody can inspect must never
 be reported as clean.*
 
-**R28.** A leak pattern **MUST** match a class rather than a name. *A committed
+**R29.** A leak pattern **MUST** match a class rather than a name. *A committed
 list of private terms publishes exactly what you consider private.*
 
-**R29.** The name of the person running the check **MUST** be taken from the
+**R30.** The name of the person running the check **MUST** be taken from the
 environment and **MUST NOT** be written into the tool or the tuning file.
 
-**R30.** A home directory naming a person **MUST** be reported unless the name
+**R31.** A home directory naming a person **MUST** be reported unless the name
 is a declared placeholder, matched as a whole name. *The allowance is matched as a whole name, so
 `/home/user` is a placeholder and a longer name beginning with those letters is
 somebody's login.*
 
-**R31.** A credential-shaped string that says of itself that it is fake
+**R32.** A credential-shaped string that says of itself that it is fake
 **MUST NOT** be reported. *A test needs a credential-shaped string, and the only safe
 one says so in itself.*
 
-**R32.** At most one leak **MUST** be reported per file. *One report is enough
+**R33.** At most one leak **MUST** be reported per file. *One report is enough
 to act on, and a generated page would otherwise print thousands.*
 
-**R33.** A path the configuration declares skipped **MUST** be skipped by the
+**R34.** A path the configuration declares skipped **MUST** be skipped by the
 history scan as well as by the tree scan. *A waiver says "this path is not
 evidence", and honouring it in one scan and not the other leaves a repository
 reporting clean on its tree and red on its history for the same declared
 reason.*
 
-**R34.** The history rules **MUST** report as warnings once the repository is
+**R35.** The history rules **MUST** report as warnings once the repository is
 declared published. *Published history cannot be rewritten, so the rule becomes
 advice.*
 
-**R35.** A rule that asks the forge about the repository **MUST NOT** run
+**R36.** A rule that asks the forge about the repository **MUST NOT** run
 unless asked.
 
 ### 4.6 The walkthrough linter
 
-**R36.** Every claim **MUST** be compared against something that cannot lie:
+**R37.** Every claim **MUST** be compared against something that cannot lie:
 the tool's help tree, the source that reads a variable, the build file, or the
 command re-run now. *Nothing here guesses what a document ought to say.*
 
-**R37.** The help tree **MUST** be walked rather than assumed, to a depth of
+**R38.** The help tree **MUST** be walked rather than assumed, to a depth of
 three verbs. *A subcommand's own subcommands are where a surface goes
 undocumented.*
 
-**R38.** A verb whose help page is identical to its parent's **MUST NOT** be
+**R39.** A verb whose help page is identical to its parent's **MUST NOT** be
 walked for children. *A tool with no per-verb help answers with the page its
 parent gave, and reading those as children multiplies the tree by itself at
 every level.*
 
-**R39.** A sample **MUST NOT** be re-run unless every command in it names a
+**R40.** A sample **MUST NOT** be re-run unless every command in it names a
 declared safe verb. *A checker that writes can mask the staleness another gate
 exists to catch.*
 
-**R40.** An elision in a recorded line **MUST** match whatever the command
+**R41.** An elision in a recorded line **MUST** match whatever the command
 prints in its place, and everything either side of it **MUST** still match.
 
-**R41.** A variable read only by test code **MUST NOT** be reported as an
+**R42.** A variable read only by test code **MUST NOT** be reported as an
 undocumented setting. *A variable only the suite reads is instrumentation
 rather than a setting.*
 
-**R42.** A variable passed to a child process **MUST NOT** be read as a
+**R43.** A variable passed to a child process **MUST NOT** be read as a
 setting the tool itself reads.
 
-**R43.** The path check **MUST** read every tracked Markdown file, not only the
+**R44.** The path check **MUST** read every tracked Markdown file, not only the
 document set, and a tree it skips **MUST** be declared with a reason. The
 document set **MUST** be checked whatever a skip says. *A nested README makes
 the same claim the document set does, and a path it names that has moved is
 wrong in the same way. A skip nobody can review is a scan deleted in private.*
 
-**R44.** Where the tool carries a `manual` verb and the repository carries
+**R45.** Where the tool carries a `manual` verb and the repository carries
 `MANUAL.md`, what the verb prints **MUST** be what the file holds, ignoring a
 trailing newline. A tool without the verb **MUST** report a skip. *The printed
 copy is what a machine with no checkout reads, so a stale binary sends the
@@ -272,6 +278,7 @@ docs:
   glossary: []             # terms a reader cannot infer
   lowercaseStarters: []    # words that start a sentence in lower case
   projectVerbs: []         # verbs the shared list does not carry
+  countable: []            # things this repository counts for itself
   terms: {}                # pattern -> what to write instead
   termsProse: {}           # the same, for documents that are not specs
 
@@ -379,7 +386,7 @@ test run and gated at a floor.
 
 ## 8. Conformance
 
-An implementation conforms when it satisfies R1 through R42, and when:
+An implementation conforms when it satisfies R1 through R45, and when:
 
 1. `cs-lint <linter> --explain` prints every rule it carries, with its reason.
 2. Every rule that reports a finding appears in that listing.

@@ -421,6 +421,37 @@ func TestASpecMayStateItsNonGoals(t *testing.T) {
 	}
 }
 
+func TestAnAssertedCountIsReported(t *testing.T) {
+	cfg := config.Docs{Countable: []string{"fixtures?", "goldens?"}}
+	ids := check(t, cfg, "The suite carries 73 fixtures, and every one has a golden.\n")
+	if !has(ids, "DOC-113") {
+		t.Errorf("got %v, want DOC-113", ids)
+	}
+}
+
+func TestACountInASampleIsNotAClaim(t *testing.T) {
+	// A number a command printed is what the sample check holds, not what this
+	// sentence asserts.
+	cfg := config.Docs{Countable: []string{"fixtures?"}}
+	ids := check(t, cfg, "Run it:\n\n```\nchecked 73 fixtures\n```\n")
+	if has(ids, "DOC-113") {
+		t.Errorf("a recorded sample was read as a claim: %v", ids)
+	}
+}
+
+func TestAnEmptyCountableListDisablesTheCheck(t *testing.T) {
+	ids := check(t, config.Docs{}, "The suite carries 73 fixtures.\n")
+	if has(ids, "DOC-113") {
+		t.Errorf("the check ran with nothing configured: %v", ids)
+	}
+}
+
+func TestABadCountableListIsAnError(t *testing.T) {
+	if _, err := New(config.Docs{Countable: []string{"fixture("}}); err == nil {
+		t.Error("an invalid pattern was accepted")
+	}
+}
+
 func TestTheMachineRegisterIsReported(t *testing.T) {
 	for _, tc := range []struct{ name, body string }{
 		{"delve", "We delve into the format below.\n"},

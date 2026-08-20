@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/codesweep-ai/lint/actions/workflows/ci.yml/badge.svg)](https://github.com/codesweep-ai/lint/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-![Rules](https://img.shields.io/badge/rules-90-informational)
+![Rules](https://img.shields.io/badge/rules-91-informational)
 ![Platforms](https://img.shields.io/badge/platform-Linux%20%C2%B7%20macOS-lightgrey)
 
 `cs-lint` is a linter for repositories. It has three commands:

@@ -120,6 +120,7 @@ failure this format is most prone to.
 | `glossary` | empty | Terms a reader cannot infer. An empty list disables the most valuable check. |
 | `lowercaseStarters` | empty | Words that legitimately start a sentence in lower case. |
 | `projectVerbs` | empty | Verbs the shared list does not carry. |
+| `countable` | empty | Things this repository counts for itself. An empty list disables the check. |
 | `terms` | empty | Pattern to advice, added to the declined-terms table. |
 | `termsProse` | empty | The same, for documents that are not specs. |
 
@@ -208,7 +209,7 @@ nothing.
 
 **`cs-lint: verb list: error parsing regexp: ...`**
 
-A `projectVerbs` entry is not a valid regular expression. Each entry is a
+A `projectVerbs` or `countable` entry is not a valid regular expression. Each entry is a
 pattern fragment, so `mints?` is valid and `mint(` is not.
 
 **`OSS-306 cannot be read as text, so its contents were never checked`**

@@ -45,6 +45,11 @@ type Docs struct {
 	// project's own belongs here; an ordinary English verb belongs in the
 	// shared list, where every project gets it.
 	ProjectVerbs []string `yaml:"projectVerbs"`
+	// Countable names the things this repository counts for itself: fixtures,
+	// rules, goldens. Prose that states one of those numbers goes stale the
+	// moment the corpus changes, and nothing fails. Entries are pattern
+	// fragments, so "fixtures?" covers both. An empty list disables the check.
+	Countable []string `yaml:"countable"`
 	// Terms adds this project's own declined words to the shared table.
 	Terms map[string]string `yaml:"terms"`
 	// TermsProse adds declined words that apply to prose but not to a spec.

@@ -92,6 +92,11 @@ var Rules = []Rule{
 		"A reader arrives at a README to find out what the software does. A section " +
 			"listing what it will not do answers a question nobody asked yet, and it " +
 			"belongs in the spec, where non-goals and hard limits are the point.", House},
+	{"DOC-113", "Prose does not assert a number the repository counts itself",
+		"A count written into a sentence is right on the day it is written and wrong " +
+			"by the next commit, and nothing fails when it drifts. Name the thing that " +
+			"reports the number instead. Reads the countable list, and an empty one " +
+			"disables it.", House},
 }
 
 // Linter checks a repository's prose.
@@ -99,6 +104,7 @@ type Linter struct {
 	cfg      config.Docs
 	splitter *mdtext.Splitter
 	verbs    *regexp.Regexp
+	counted  *regexp.Regexp
 	terms    []compiledTerm
 	termsPr  []compiledTerm
 	glossary []glossaryTerm
@@ -140,6 +146,13 @@ func New(cfg config.Docs) (*Linter, error) {
 		cfg:      cfg,
 		splitter: mdtext.NewSplitter(cfg.LowercaseStarters),
 		verbs:    verbRE,
+	}
+	if len(cfg.Countable) > 0 {
+		l.counted, err = regexp.Compile(`(?i)\b(\d[\d,]{0,6})\s+(` +
+			strings.Join(cfg.Countable, "|") + `)\b`)
+		if err != nil {
+			return nil, fmt.Errorf("countable list: %w", err)
+		}
 	}
 	for _, term := range cfg.Glossary {
 		re, err := regexp.Compile(`(?i)\b` + regexp.QuoteMeta(term) + `\w*\b`)
@@ -275,6 +288,7 @@ func (l *Linter) Check(root, rel string) ([]lint.Problem, error) {
 				Quoting(strings.TrimSpace(raw[m[0]:m[1]])))
 		}
 	}
+	out = append(out, l.assertedCounts(text, rel)...)
 	out = append(out, l.undefinedTerms(raw, rel)...)
 	out = append(out, l.throatClearing(text, rel)...)
 	out = append(out, l.echoes(text, rel)...)
@@ -539,6 +553,28 @@ var (
 )
 
 // undefinedTerms reports a glossary term used before anything introduces it.
+// assertedCounts reports a number stated next to something this repository
+// counts for itself.
+//
+// The text is prose with the fences, tables and raw HTML already removed, so a
+// number inside a recorded sample is not read as a claim: that number is what
+// the command printed, and the sample check is what holds it.
+func (l *Linter) assertedCounts(text, rel string) []lint.Problem {
+	if l.counted == nil {
+		return nil
+	}
+	var out []lint.Problem
+	for _, m := range l.counted.FindAllStringSubmatchIndex(text, -1) {
+		phrase := text[m[0]:m[1]]
+		noun := text[m[4]:m[5]]
+		out = append(out, lint.Errorf("DOC-113",
+			"%q states a count that changes without this sentence; name what reports %s instead",
+			phrase, noun).
+			At(fmt.Sprintf("%s:%d", rel, lint.Line(text, m[0]))))
+	}
+	return out
+}
+
 func (l *Linter) undefinedTerms(raw, rel string) []lint.Problem {
 	// Headings name a term without introducing it, and "# Cassettes" is not a
 	// first use in any sense a reader cares about.
