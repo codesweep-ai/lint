@@ -79,15 +79,20 @@ never mask the staleness another gate exists to catch.
 ## Tests
 
 Ship a new rule with two tests: one that fires it on a deliberate violation,
-one that stays quiet on the clean case. Both halves matter, because a rule with
-only the first can be a rule that reports everything.
+one that stays quiet on the clean case. A rule with only the first test can be
+a rule that reports everything.
 
-Ship a fix with a test that fails against the unmodified code. Write the test,
-watch it fail, then fix. A test that passes before the change tested nothing.
+Ship a fix with a test that fails against the unmodified code. Write the
+test, watch it fail, then fix. A test that passes before the change tested
+nothing.
 
-Coverage is measured on every `make test` and gated at a floor by
-`make coverage-check`. Raise the floor when a tier lands; never lower it to
-make a run green.
+Test the contract, not the implementation: the finding a rule reports, its
+exit status, and the text a reader acts on. Say why the case matters in a
+comment when it is not obvious.
+
+Never lower the coverage floor to make a run green. Raise it when a tier
+lands. [`SPEC.md`](SPEC.md#74-testing) holds how the suite is organised and
+what it covers.
 
 ## Commits
 
