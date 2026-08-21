@@ -227,42 +227,70 @@ advice.*
 **R36.** A rule that asks the forge about the repository **MUST NOT** run
 unless asked.
 
+**R37.** `CONTRIBUTING.md` **MUST** state how a change reaches the project:
+where a report goes, where the work starts, and how it is submitted. *A
+document that states every convention and never the process reads as published
+rather than open, and the contribution that never arrives leaves no trace to
+notice.*
+
+**R38.** A public channel for an ordinary report **MUST** be named, distinctly
+from any tracker the repository commits to its own tree. *A ledger in the tree
+is the maintainers' record. A stranger cannot file into it.*
+
+**R39.** The terms a contribution is accepted under, and a policy for
+AI-assisted contributions, **MUST** each be stated. *A contributor grants a
+licence whether or not anybody says so, and a repository whose history carries
+agent trailers owes its readers the policy behind them.*
+
+**R40.** The writing rules **MUST** be cited rather than restated. *A second
+copy drifts. Six sibling projects each restating one list produced six
+different lists, two of which stated a threshold the linter they shipped did
+not hold.*
+
+**R41.** A table `CONTRIBUTING.md` and `SPEC.md` both carry **MUST** be
+reported. *A fact lives in one document and the others link to it.*
+
+**R42.** A commit convention **MUST NOT** be checked against a number the
+convention itself publishes. *A stated maximum becomes a target: where one was
+named as the rare maximum, a repository put exactly that many in 31 of 149
+commits. The check reports the shape; the document describes the condition.*
+
 ### 4.6 The walkthrough linter
 
-**R37.** Every claim **MUST** be compared against something that cannot lie:
+**R43.** Every claim **MUST** be compared against something that cannot lie:
 the tool's help tree, the source that reads a variable, the build file, or the
 command re-run now. *Nothing here guesses what a document ought to say.*
 
-**R38.** The help tree **MUST** be walked rather than assumed, to a depth of
+**R44.** The help tree **MUST** be walked rather than assumed, to a depth of
 three verbs. *A subcommand's own subcommands are where a surface goes
 undocumented.*
 
-**R39.** A verb whose help page is identical to its parent's **MUST NOT** be
+**R45.** A verb whose help page is identical to its parent's **MUST NOT** be
 walked for children. *A tool with no per-verb help answers with the page its
 parent gave, and reading those as children multiplies the tree by itself at
 every level.*
 
-**R40.** A sample **MUST NOT** be re-run unless every command in it names a
+**R46.** A sample **MUST NOT** be re-run unless every command in it names a
 declared safe verb. *A checker that writes can mask the staleness another gate
 exists to catch.*
 
-**R41.** An elision in a recorded line **MUST** match whatever the command
+**R47.** An elision in a recorded line **MUST** match whatever the command
 prints in its place, and everything either side of it **MUST** still match.
 
-**R42.** A variable read only by test code **MUST NOT** be reported as an
+**R48.** A variable read only by test code **MUST NOT** be reported as an
 undocumented setting. *A variable only the suite reads is instrumentation
 rather than a setting.*
 
-**R43.** A variable passed to a child process **MUST NOT** be read as a
+**R49.** A variable passed to a child process **MUST NOT** be read as a
 setting the tool itself reads.
 
-**R44.** The path check **MUST** read every tracked Markdown file, not only the
+**R50.** The path check **MUST** read every tracked Markdown file, not only the
 document set, and a tree it skips **MUST** be declared with a reason. The
 document set **MUST** be checked whatever a skip says. *A nested README makes
 the same claim the document set does, and a path it names that has moved is
 wrong in the same way. A skip nobody can review is a scan deleted in private.*
 
-**R45.** Where the tool carries a `manual` verb and the repository carries
+**R51.** Where the tool carries a `manual` verb and the repository carries
 `MANUAL.md`, what the verb prints **MUST** be what the file holds, ignoring a
 trailing newline. Where the verb, the file or the binary is absent, or the verb
 does not exit zero, the rule **MUST** report a skip. The finding **MUST** name
@@ -270,7 +298,7 @@ the first line that differs. *The printed copy is what a machine with no
 checkout reads, so a stale binary sends the wrong answer to the reader least
 able to notice, and the first differing line is where a rebuild shows its work.*
 
-**R46.** A section citation in the source **MUST** resolve, and a tree it skips
+**R52.** A section citation in the source **MUST** resolve, and a tree it skips
 **MUST** be declared with a reason. The suite **MUST** be read, and no
 `sourceSkip` **MUST** apply. A citation naming no document **MUST** be read
 against the spec, or against the only document that numbers its sections, and
@@ -280,7 +308,7 @@ its next reader as surely as one in production code, and a tree excluded because
 its settings are another program's still cites this repository's own spec. A
 rule that guesses which document was meant reports a finding nobody can act on.*
 
-**R47.** A numbered section **MUST** be recognised as a heading or as a bold
+**R53.** A numbered section **MUST** be recognised as a heading or as a bold
 lead-in. *A spec numbering its rules without adding a level to the table of
 contents is not a spec whose citations are all stale.*
 
@@ -405,7 +433,7 @@ test run and gated at a floor.
 
 ## 8. Conformance
 
-An implementation conforms when it satisfies R1 through R47, and when:
+An implementation conforms when it satisfies R1 through R53, and when:
 
 1. `cs-lint <linter> --explain` prints every rule it carries, with its reason.
 2. Every rule that reports a finding appears in that listing.

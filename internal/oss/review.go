@@ -117,6 +117,23 @@ embarrass someone.
 
 Say for each whether it is worth rewriting before publication, given that rewriting is
 possible now and impossible afterwards.`,
+}, {
+	ID:       "REV-09",
+	Title:    "The lines that did not earn their place",
+	Evidence: []string{"git log -60 --format='%s%n%b%n---'", "cat CONTRIBUTING.md"},
+	Ask: `Read the last sixty commit bodies against the commit convention in CONTRIBUTING.md.
+You are looking for the line that exists to fill a shape rather than to say something:
+one that restates the subject in other words, one that opens with "Also" and adds a
+detail nobody needed, and one that describes the diff rather than the design.
+
+Then look at the distribution rather than at any single message. Count how many bodies
+carry no lines, one, two, three and more. A count that piles up on one number is the
+tell: the convention named that number, or an example in the document showed it, and
+both read as a target rather than as a limit.
+
+Report the padded lines with their commit, and say what the document should say instead.
+Where the document names a number or prints an example at its own ceiling, say so. That
+is the cause, and the messages are the symptom.`,
 }}
 
 // RenderReviews returns the pack, which is a document rather than a run: what

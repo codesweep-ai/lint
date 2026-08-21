@@ -35,6 +35,24 @@ var (
 	namesTheGate = regexp.MustCompile(`\bmake check\b|\bnpm (run )?check\b|scripts/check`)
 	namesTrailer = regexp.MustCompile(`(?i)trailer`)
 
+	// How a change gets in. A document that never says leaves a contributor
+	// to guess, and the guess is usually to do nothing.
+	submitsAChange = regexp.MustCompile(`(?i)pull request|merge request|patch(?:es)? to|send.{0,12}patch`)
+	namesAForkStep = regexp.MustCompile(`(?i)\bfork\b|\bbranch (?:from|off)\b|create a branch`)
+	namesATracker  = regexp.MustCompile(`(?i)(?:github|gitlab) issue|issue tracker|open an issue|` +
+		`file (?:a|an) (?:bug|issue)|/issues\b|report (?:a )?bug`)
+	namesTheTerms = regexp.MustCompile(`(?i)under the .{0,24}licen[cs]e|licen[cs]e this project|` +
+		`inbound|developer certificate of origin|\bDCO\b|sign-?off|\bCLA\b|contributor licen`)
+	namesAIPolicy = regexp.MustCompile(`(?im)^##+\s*.*\b(?:AI|agent|model|LLM)[- ]?(?:assisted|generated|written|use)`)
+
+	// The Writing section delegates rather than restating the checks. A
+	// second copy of a rule set drifts, and a document that states a
+	// threshold the linter does not hold is worse than one that states none.
+	citesTheLinter = regexp.MustCompile(`cs-lint docs --explain`)
+
+	// A table's header row, used to spot the same table in two documents.
+	tableHeader = regexp.MustCompile(`^\|(.+)\|\s*$`)
+
 	// A repository-relative path with an extension. Anything with a scheme, a
 	// glob, a variable or a leading slash is not one. The boundaries the
 	// original expressed as lookarounds are checked beside the match.
@@ -423,4 +441,176 @@ var documentRules = []rule{{
 		return []lint.Problem{lint.Errorf("OSS-212",
 			"a security report is invited but no channel is named: %s", quote)}
 	},
+}, {
+	id: "OSS-213", severity: lint.Warn,
+	title: "CONTRIBUTING says how a change gets in",
+	why: "A stranger who wants to fix a typo has to be able to learn what to do next. A " +
+		"document that states every convention and never states the process reads as " +
+		"published rather than open, and the contribution that does not arrive is invisible.",
+	check: func(l *Linter) []lint.Problem {
+		body, ok := l.read("CONTRIBUTING.md")
+		if !ok {
+			return []lint.Problem{lint.Skipf("OSS-213", "no CONTRIBUTING.md")}
+		}
+		var missing []string
+		if !submitsAChange.MatchString(body) {
+			missing = append(missing, "how a change is submitted")
+		}
+		if !namesAForkStep.MatchString(body) {
+			missing = append(missing, "where the work starts, as a fork or a branch")
+		}
+		if len(missing) > 0 {
+			return []lint.Problem{lint.Warnf("OSS-213",
+				"CONTRIBUTING.md never says %s", strings.Join(missing, ", nor "))}
+		}
+		return nil
+	},
+}, {
+	id: "OSS-214", severity: lint.Warn,
+	title: "An ordinary bug report has somewhere to go",
+	why: "A ledger committed in the tree is the maintainers' own record, not a place a " +
+		"stranger can file. OSS-212 covers the private channel for a vulnerability. This " +
+		"covers the public one for everything else, which is the commoner report by far.",
+	check: func(l *Linter) []lint.Problem {
+		body, ok := l.read("CONTRIBUTING.md")
+		if !ok {
+			return []lint.Problem{lint.Skipf("OSS-214", "no CONTRIBUTING.md")}
+		}
+		readme, _ := l.read("README.md")
+		if namesATracker.MatchString(body) || namesATracker.MatchString(readme) {
+			return nil
+		}
+		return []lint.Problem{lint.Warnf("OSS-214",
+			"neither CONTRIBUTING.md nor README.md names where an ordinary bug report goes")}
+	},
+}, {
+	id: "OSS-215", severity: lint.Warn,
+	title: "CONTRIBUTING states the terms a contribution is accepted under",
+	why: "A contributor is granting a licence whether or not anybody says so. Stating it " +
+		"costs one sentence and removes the question a careful contributor stops to ask.",
+	check: func(l *Linter) []lint.Problem {
+		body, ok := l.read("CONTRIBUTING.md")
+		if !ok {
+			return []lint.Problem{lint.Skipf("OSS-215", "no CONTRIBUTING.md")}
+		}
+		// Flattened first: the sentence that states the terms is usually
+		// wrapped, and the licence name lands on the next line.
+		if namesTheTerms.MatchString(strings.Join(strings.Fields(body), " ")) {
+			return nil
+		}
+		return []lint.Problem{lint.Warnf("OSS-215",
+			"CONTRIBUTING.md never says what terms a contribution is accepted under")}
+	},
+}, {
+	id: "OSS-216", severity: lint.Warn,
+	title: "CONTRIBUTING states a policy for AI-assisted contributions",
+	why: "A repository whose history carries Co-Authored-By trailers owes its readers the " +
+		"policy behind them. Saying nothing leaves a maintainer arguing it case by case, " +
+		"and leaves an agent working here with no instruction it can follow.",
+	check: func(l *Linter) []lint.Problem {
+		body, ok := l.read("CONTRIBUTING.md")
+		if !ok {
+			return []lint.Problem{lint.Skipf("OSS-216", "no CONTRIBUTING.md")}
+		}
+		if namesAIPolicy.MatchString(body) {
+			return nil
+		}
+		return []lint.Problem{lint.Warnf("OSS-216",
+			"CONTRIBUTING.md has no section stating a policy for AI-assisted contributions")}
+	},
+}, {
+	id: "OSS-217", severity: lint.Warn,
+	title: "The writing rules are cited rather than copied",
+	why: "A restated rule set is a second copy that nothing keeps in sync. Six sibling " +
+		"projects each restating this one produced six different lists, and two of them " +
+		"stated a threshold the linter they shipped did not hold. Cite the linter instead.",
+	check: func(l *Linter) []lint.Problem {
+		body, ok := l.read("CONTRIBUTING.md")
+		if !ok {
+			return []lint.Problem{lint.Skipf("OSS-217", "no CONTRIBUTING.md")}
+		}
+		start, length := sectionAt(body, contribHeading["Writing"])
+		if start < 0 {
+			return []lint.Problem{lint.Skipf("OSS-217", "CONTRIBUTING.md has no Writing section")}
+		}
+		section := body[start : start+length]
+		var out []lint.Problem
+		if !citesTheLinter.MatchString(section) {
+			out = append(out, lint.Warnf("OSS-217",
+				"the Writing section never points at `cs-lint docs --explain`, "+
+					"so a reader cannot tell which rules are enforced"))
+		}
+		if n := strings.Count(section, "\n"); n > maxWritingLines {
+			out = append(out, lint.Warnf("OSS-217",
+				"the Writing section is %d lines (max %d): it is restating the linter "+
+					"rather than citing it", n, maxWritingLines))
+		}
+		return out
+	},
+}, {
+	id: "OSS-218", severity: lint.Warn,
+	title: "CONTRIBUTING does not restate a table SPEC already carries",
+	why: "A fact lives in one document and the others link to it. Two copies of one table " +
+		"drift, and the copy a contributor reads is rarely the copy that was updated.",
+	check: func(l *Linter) []lint.Problem {
+		contrib, ok := l.read("CONTRIBUTING.md")
+		if !ok {
+			return []lint.Problem{lint.Skipf("OSS-218", "no CONTRIBUTING.md")}
+		}
+		spec, ok := l.read("SPEC.md")
+		if !ok {
+			return []lint.Problem{lint.Skipf("OSS-218", "no SPEC.md")}
+		}
+		specHeads := tableHeaders(spec)
+		var out []lint.Problem
+		for head := range tableHeaders(contrib) {
+			if specHeads[head] {
+				out = append(out, lint.Warnf("OSS-218",
+					"the table `%s` is in SPEC.md too; keep one and link to it", head))
+			}
+		}
+		return out
+	},
 }}
+
+// maxWritingLines is where a Writing section stops citing the linter and
+// starts being a second copy of it. Long enough for the principles that carry
+// the voice and the pointer, short enough that a restated rule set trips it.
+const maxWritingLines = 60
+
+// sectionAt returns the offset and length of the section a heading opens,
+// running to the next heading of the same level or to the end.
+func sectionAt(body string, heading *regexp.Regexp) (int, int) {
+	loc := heading.FindStringIndex(body)
+	if loc == nil {
+		return -1, 0
+	}
+	rest := body[loc[1]:]
+	if next := regexp.MustCompile(`(?m)^##\s`).FindStringIndex(rest); next != nil {
+		return loc[0], loc[1] - loc[0] + next[0]
+	}
+	return loc[0], len(body) - loc[0]
+}
+
+// tableHeaders returns the header row of every Markdown table in a document,
+// normalised, which is what identifies one table as a copy of another.
+func tableHeaders(body string) map[string]bool {
+	out := map[string]bool{}
+	lines := strings.Split(body, "\n")
+	for i := 0; i+1 < len(lines); i++ {
+		m := tableHeader.FindStringSubmatch(strings.TrimSpace(lines[i]))
+		if m == nil || !strings.Contains(lines[i+1], "---") {
+			continue
+		}
+		var cells []string
+		for c := range strings.SplitSeq(m[1], "|") {
+			if c = strings.ToLower(strings.TrimSpace(c)); c != "" {
+				cells = append(cells, c)
+			}
+		}
+		if len(cells) > 1 {
+			out[strings.Join(cells, " | ")] = true
+		}
+	}
+	return out
+}

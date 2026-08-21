@@ -20,7 +20,30 @@ var (
 	// pattern walked past it.
 	privateBranch = regexp.MustCompile(`(?i)(?:^|[-_/])(?:backup|bak|wip|old|tmp|temp|scratch|orig|snapshot)` +
 		`(?:[-_/]|\d|$)|^pre-`)
+
+	// A conventional-commit prefix. It names a category rather than a change,
+	// and the category is already in the diff.
+	commitPrefix = regexp.MustCompile(`^(?:feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)` +
+		`(?:\([^)]*\))?!?:\s`)
+
+	// A body line that narrates the work rather than describing the change.
+	narratesProcess = regexp.MustCompile(`(?i)^\s*(?:[-*]\s*)?(?:as (?:requested|discussed|agreed)|` +
+		`per (?:the )?(?:review|feedback|request)|this commit |we (?:then|also|now) |` +
+		`after (?:investigat|debugg|trying|some)|i (?:tried|noticed|found that)|` +
+		`(?:turns out|it turned out)|the user (?:asked|wanted|reported))`)
 )
+
+// bodyBullets returns the bullet lines of a commit body, trailers excluded.
+func bodyBullets(body string) []string {
+	var out []string
+	for line := range strings.SplitSeq(body, "\n") {
+		t := strings.TrimSpace(line)
+		if strings.HasPrefix(t, "- ") || strings.HasPrefix(t, "* ") {
+			out = append(out, strings.TrimSpace(t[2:]))
+		}
+	}
+	return out
+}
 
 // historySeverity is Error until the repository is public. Published history
 // cannot be rewritten, so from that point the rule is advice.
@@ -133,10 +156,14 @@ var historyRules = []rule{{
 				lines = append(lines, l)
 			}
 		}
-		var badCase, tooLong, trailing []string
+		var badCase, tooLong, trailing, prefixed []string
 		for _, line := range lines {
 			sha, subject, _ := strings.Cut(line, " ")
 			if subject == "" {
+				continue
+			}
+			if commitPrefix.MatchString(subject) {
+				prefixed = append(prefixed, sha)
 				continue
 			}
 			if r := rune(subject[0]); r >= 'a' && r <= 'z' {
@@ -157,6 +184,7 @@ var historyRules = []rule{{
 			{"open in lower case", badCase},
 			{"are over 60 characters", tooLong},
 			{"end with a full stop", trailing},
+			{"open with a conventional-commit prefix, which names a category rather than a change", prefixed},
 		} {
 			if len(g.hits) > 0 {
 				out = append(out, lint.Warnf("OSS-702", "%d of %d commit subjects %s",
@@ -321,7 +349,132 @@ var historyRules = []rule{{
 		}
 		return out
 	},
+}, {
+	id: "OSS-709", severity: lint.Warn,
+	title: "A commit body carries no bullet that did not earn its place",
+	why: "A stated maximum becomes a target. Where a convention named three as the rare " +
+		"maximum, one repository put exactly three in 31 of 149 commits, tying two for " +
+		"the commonest non-zero count. The bullets read well one at a time, so only the " +
+		"distribution shows it. This reports the shapes that produce it: a run longer than " +
+		"the convention describes, and a line that restates the subject in other words.",
+	check: func(l *Linter) []lint.Problem {
+		log, err := l.repo.Git("log", "--format=%H%x00%s%x00%b%x1e")
+		if err != nil {
+			return []lint.Problem{lint.Skipf("OSS-709", "no git history")}
+		}
+		var padded, echoed []string
+		var total int
+		for rec := range strings.SplitSeq(log, "\x1e") {
+			parts := strings.SplitN(strings.TrimLeft(rec, "\n"), "\x00", 3)
+			if len(parts) < 3 {
+				continue
+			}
+			sha, subject, body := shortSHA(parts[0]), parts[1], parts[2]
+			bullets := bodyBullets(body)
+			if len(bullets) == 0 {
+				continue
+			}
+			total++
+			if len(bullets) > maxBodyBullets {
+				padded = append(padded, sha)
+			}
+			for _, b := range bullets {
+				if restates(subject, b) {
+					echoed = append(echoed, sha)
+					break
+				}
+			}
+		}
+		if total == 0 {
+			return []lint.Problem{lint.Skipf("OSS-709", "no commit body uses bullets")}
+		}
+		var out []lint.Problem
+		if len(padded) > 0 {
+			out = append(out, lint.Warnf("OSS-709",
+				"%d of %d bulleted bodies run past %d points; read them for the one added to "+
+					"fill the shape", len(padded), total, maxBodyBullets).At(padded[0]))
+		}
+		if len(echoed) > 0 {
+			out = append(out, lint.Warnf("OSS-709",
+				"%d of %d bulleted bodies open a line that restates the subject",
+				len(echoed), total).At(echoed[0]))
+		}
+		return out
+	},
+}, {
+	id: "OSS-710", severity: lint.Warn,
+	title: "No commit body narrates the work instead of describing the change",
+	why: "A reader of the history was not there. \"As requested\", \"after investigating\" " +
+		"and \"this commit\" describe the session rather than the software, and an agent " +
+		"writing from a transcript reaches for them by default.",
+	check: func(l *Linter) []lint.Problem {
+		log, err := l.repo.Git("log", "--format=%H%x00%b%x1e")
+		if err != nil {
+			return []lint.Problem{lint.Skipf("OSS-710", "no git history")}
+		}
+		var hits []string
+		var quote string
+		for rec := range strings.SplitSeq(log, "\x1e") {
+			sha, body, found := strings.Cut(strings.TrimLeft(rec, "\n"), "\x00")
+			if !found {
+				continue
+			}
+			for line := range strings.SplitSeq(body, "\n") {
+				if narratesProcess.MatchString(line) {
+					hits = append(hits, shortSHA(sha))
+					if quote == "" {
+						quote = strings.TrimSpace(line)
+					}
+					break
+				}
+			}
+		}
+		if len(hits) == 0 {
+			return nil
+		}
+		if len(quote) > 70 {
+			quote = quote[:70]
+		}
+		return []lint.Problem{lint.Warnf("OSS-710",
+			"%d commit body(s) narrate the work: %q", len(hits), quote).At(hits[0])}
+	},
 }}
+
+// maxBodyBullets is where a body stops carrying points and starts being
+// filled to a shape. Not a convention to state in CONTRIBUTING: naming a
+// number there is what produces the padding this reports.
+const maxBodyBullets = 3
+
+// restates reports whether a body line says what the subject already said.
+// Content words shared with the subject, over a line short enough that the
+// overlap is most of it.
+func restates(subject, line string) bool {
+	stop := map[string]bool{"the": true, "a": true, "an": true, "and": true, "or": true,
+		"to": true, "of": true, "in": true, "on": true, "for": true, "is": true, "it": true,
+		"that": true, "with": true, "not": true, "no": true, "so": true, "as": true}
+	want := map[string]bool{}
+	for w := range strings.FieldsSeq(strings.ToLower(subject)) {
+		w = strings.Trim(w, ".,:;`\"'()")
+		if len(w) > 3 && !stop[w] {
+			want[w] = true
+		}
+	}
+	if len(want) < 2 {
+		return false
+	}
+	var words, shared int
+	for w := range strings.FieldsSeq(strings.ToLower(line)) {
+		w = strings.Trim(w, ".,:;`\"'()")
+		if len(w) <= 3 || stop[w] {
+			continue
+		}
+		words++
+		if want[w] {
+			shared++
+		}
+	}
+	return words > 0 && words <= 8 && shared*2 >= words
+}
 
 func shortSHA(sha string) string {
 	sha = strings.TrimSpace(sha)

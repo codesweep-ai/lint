@@ -723,3 +723,170 @@ func TestScansStillRunWhenThereIsSomethingToRead(t *testing.T) {
 	}
 	t.Error("OSS-301 reported nothing against a tracked file carrying a leak")
 }
+
+// contribWith returns a CONTRIBUTING.md carrying everything the conventions
+// rules want, so a test can remove exactly the one thing it is about.
+func contribWith() string {
+	return "# Contributing\n\n" +
+		"File a bug as a GitHub issue on this repository.\n\n" +
+		"1. Fork the repository, and create a branch off `main`.\n" +
+		"2. Open a pull request against `main`.\n\n" +
+		"By opening a pull request you agree that your contribution ships under the\n" +
+		"Apache 2.0 licence this project is released under.\n\n" +
+		"## Commits\n\nRun `make check` first. Keep the Co-Authored-By trailer.\n\n" +
+		"## Writing\n\nRead `cs-lint docs --explain` for the enforced list.\n\n" +
+		"## AI-assisted contributions\n\nDisclose it, and own what you submit.\n"
+}
+
+func TestContributingStatesHowAChangeGetsIn(t *testing.T) {
+	full := map[string]string{"CONTRIBUTING.md": contribWith()}
+	if got := run(t, "OSS-213", config.OSS{}, full); len(got) != 0 {
+		t.Errorf("a complete process section was reported: %v", got)
+	}
+	// A document that states every convention and never the process.
+	silent := map[string]string{"CONTRIBUTING.md": "# Contributing\n\n## Commits\n\n" +
+		"Keep one idea per commit.\n\n## Writing\n\nSee `cs-lint docs --explain`.\n"}
+	if got := run(t, "OSS-213", config.OSS{}, silent); len(got) == 0 {
+		t.Error("a document that never says how a change is submitted passed")
+	}
+}
+
+func TestAnOrdinaryBugReportHasSomewhereToGo(t *testing.T) {
+	named := map[string]string{"CONTRIBUTING.md": contribWith()}
+	if got := run(t, "OSS-214", config.OSS{}, named); len(got) != 0 {
+		t.Errorf("a named tracker was reported: %v", got)
+	}
+	// A committed ledger is the maintainers' record, not a public channel.
+	ledgerOnly := map[string]string{"CONTRIBUTING.md": "# Contributing\n\n" +
+		"This repo keeps a ledger of open issues in `ledger/`. Read it before you start.\n"}
+	if got := run(t, "OSS-214", config.OSS{}, ledgerOnly); len(got) == 0 {
+		t.Error("a repository whose only tracker is its own ledger passed")
+	}
+}
+
+func TestContributionTermsAndAIPolicyAreStated(t *testing.T) {
+	full := map[string]string{"CONTRIBUTING.md": contribWith()}
+	for _, id := range []string{"OSS-215", "OSS-216"} {
+		if got := run(t, id, config.OSS{}, full); len(got) != 0 {
+			t.Errorf("%s reported a complete document: %v", id, got)
+		}
+	}
+	bare := map[string]string{"CONTRIBUTING.md": "# Contributing\n\n## Commits\n\nOne idea each.\n"}
+	for _, id := range []string{"OSS-215", "OSS-216"} {
+		if got := run(t, id, config.OSS{}, bare); len(got) == 0 {
+			t.Errorf("%s passed a document stating neither", id)
+		}
+	}
+}
+
+func TestWritingSectionCitesRatherThanCopies(t *testing.T) {
+	cites := map[string]string{"CONTRIBUTING.md": contribWith()}
+	if got := run(t, "OSS-217", config.OSS{}, cites); len(got) != 0 {
+		t.Errorf("a section that cites the linter was reported: %v", got)
+	}
+	// A restated rule set: long, and never naming the linter.
+	copied := "# Contributing\n\n## Writing\n\n" + strings.Repeat("1. A rule restated here.\n", 70)
+	if got := run(t, "OSS-217", config.OSS{}, map[string]string{"CONTRIBUTING.md": copied}); len(got) != 2 {
+		t.Errorf("got %d findings, want 2 (uncited and too long): %v", len(got), got)
+	}
+}
+
+func TestContributingDoesNotRestateASpecTable(t *testing.T) {
+	table := "| Tier | What it runs | Cost |\n|---|---|---|\n| unit | everything | free |\n"
+	both := map[string]string{
+		"CONTRIBUTING.md": "# Contributing\n\n## Tests\n\n" + table,
+		"SPEC.md":         "# Spec\n\n## Testing\n\n" + table,
+	}
+	if got := run(t, "OSS-218", config.OSS{}, both); len(got) == 0 {
+		t.Error("the same table in both documents passed")
+	}
+	linked := map[string]string{
+		"CONTRIBUTING.md": "# Contributing\n\n## Tests\n\nThe tiers are in SPEC.md.\n",
+		"SPEC.md":         "# Spec\n\n## Testing\n\n" + table,
+	}
+	if got := run(t, "OSS-218", config.OSS{}, linked); len(got) != 0 {
+		t.Errorf("a document that links to the table was reported: %v", got)
+	}
+}
+
+// history builds a repository whose commits are the given messages, so the
+// history rules have something to read.
+func history(t *testing.T, messages ...string) *lint.Repo {
+	t.Helper()
+	repo := linttest.Repo(t, map[string]string{"README.md": "# x\n"})
+	for i, msg := range messages {
+		for _, args := range [][]string{
+			{"commit", "--allow-empty", "-q", "-m", msg},
+		} {
+			cmd := exec.Command("git", args...)
+			cmd.Dir = repo.Root
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("commit %d: %v\n%s", i, err, out)
+			}
+		}
+	}
+	return repo
+}
+
+func runHistory(t *testing.T, id string, repo *lint.Repo) []lint.Problem {
+	t.Helper()
+	l := New(config.Default().OSS, repo)
+	for _, r := range rules {
+		if r.id == id {
+			return l.runOne(r)
+		}
+	}
+	t.Fatalf("no rule %s", id)
+	return nil
+}
+
+func TestBulletPaddingIsReported(t *testing.T) {
+	padded := history(t,
+		"Sort the findings by rule\n\n- One.\n- Two.\n- Three.\n- Four.\n",
+		"Reject a bad manifest\n\n- A reason.\n")
+	got := runHistory(t, "OSS-709", padded)
+	if len(got) == 0 {
+		t.Error("a body running past the ceiling passed")
+	}
+	// A line that says what the subject already said.
+	echoed := history(t, "Sort the findings by rule\n\n- Findings are sorted by rule.\n")
+	if got := runHistory(t, "OSS-709", echoed); len(got) == 0 {
+		t.Error("a line restating the subject passed")
+	}
+	clean := history(t, "Reject a manifest naming a deleted file\n\n- A blkid probe costs nothing.\n")
+	for _, p := range runHistory(t, "OSS-709", clean) {
+		if p.Severity != lint.Skip {
+			t.Errorf("a well-shaped body was reported: %v", p)
+		}
+	}
+}
+
+func TestProcessNarrationIsReported(t *testing.T) {
+	narrated := history(t, "Fix the parse\n\nAs requested, this commit rewrites the parser.\n")
+	if got := runHistory(t, "OSS-710", narrated); len(got) == 0 {
+		t.Error("a body narrating the session passed")
+	}
+	described := history(t, "Fix the parse\n\nThe old splitter joined two sentences into one.\n")
+	if got := runHistory(t, "OSS-710", described); len(got) != 0 {
+		t.Errorf("a body describing the change was reported: %v", got)
+	}
+}
+
+func TestConventionalCommitPrefixIsReported(t *testing.T) {
+	prefixed := history(t, "feat(auth): add a token cache", "fix: correct the parse")
+	found := false
+	for _, p := range runHistory(t, "OSS-702", prefixed) {
+		if strings.Contains(p.Message, "conventional-commit prefix") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("a conventional-commit prefix passed")
+	}
+	plain := history(t, "Add a token cache to the resolver")
+	for _, p := range runHistory(t, "OSS-702", plain) {
+		if strings.Contains(p.Message, "conventional-commit prefix") {
+			t.Errorf("a plain subject was reported: %v", p)
+		}
+	}
+}
