@@ -137,8 +137,9 @@ checks the mechanical half, and running it against this repository is part of
 3. **State the point first, then qualify it.** Opening with the qualifier makes
    the reader decode the sentence backwards.
 4. **Keep sentences under 30 words**, and to one idea each.
-5. **Use at most one em-dash per paragraph.** Where a second appears, a full
-   stop usually works better.
+5. **No em-dash.** The aside one introduces is a full stop, a comma, or a cut.
+   It is also the first punctuation a model reaches for, so a page full of them
+   reads as unedited whoever wrote it.
 6. **Address the reader as "you"**, and use the imperative for steps.
 7. **Keep the evidence out of the instructions.** A war story explains a
    decision. Put it in an explanation section, not in the middle of a task.
