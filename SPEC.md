@@ -312,6 +312,13 @@ rule that guesses which document was meant reports a finding nobody can act on.*
 lead-in. *A spec numbering its rules without adding a level to the table of
 contents is not a spec whose citations are all stale.*
 
+**R54.** A commit body that runs past a stated word count, or past two
+paragraphs, **MUST** be reported. *A convention that asks for quality and never
+mentions length produces long messages: plain English, whole sentences and
+writing for a reader who was not there are each satisfied by writing more. The
+threshold belongs in the check rather than in `CONTRIBUTING.md`, where a stated
+number becomes the length messages get written to.*
+
 ## 5. Data model
 
 ### 5.1 The tuning file
@@ -433,7 +440,7 @@ test run and gated at a floor.
 
 ## 8. Conformance
 
-An implementation conforms when it satisfies R1 through R53, and when:
+An implementation conforms when it satisfies R1 through R54, and when:
 
 1. `cs-lint <linter> --explain` prints every rule it carries, with its reason.
 2. Every rule that reports a finding appears in that listing.

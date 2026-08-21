@@ -26,6 +26,10 @@ var (
 	commitPrefix = regexp.MustCompile(`^(?:feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)` +
 		`(?:\([^)]*\))?!?:\s`)
 
+	// A trailer: a key and a value on one line at the foot of a message.
+	// Metadata rather than prose, so the length rules do not count it.
+	trailerLine = regexp.MustCompile(`^[A-Za-z][A-Za-z-]*:\s`)
+
 	// A body line that narrates the work rather than describing the change.
 	narratesProcess = regexp.MustCompile(`(?i)^\s*(?:[-*]\s*)?(?:as (?:requested|discussed|agreed)|` +
 		`per (?:the )?(?:review|feedback|request)|this commit |we (?:then|also|now) |` +
@@ -43,6 +47,33 @@ func bodyBullets(body string) []string {
 		}
 	}
 	return out
+}
+
+// bodyProse returns a commit body's word and paragraph counts, with trailers
+// and code fences left out. Both are shapes rather than prose, and a message
+// quoting a stack trace is not the thing this measures.
+func bodyProse(body string) (words, paragraphs int) {
+	var fenced, inPara bool
+	for line := range strings.SplitSeq(body, "\n") {
+		t := strings.TrimSpace(line)
+		if strings.HasPrefix(t, "```") {
+			fenced = !fenced
+			continue
+		}
+		if fenced || trailerLine.MatchString(t) {
+			continue
+		}
+		if t == "" {
+			inPara = false
+			continue
+		}
+		if !inPara {
+			paragraphs++
+			inPara = true
+		}
+		words += len(strings.Fields(t))
+	}
+	return words, paragraphs
 }
 
 // historySeverity is Error until the repository is public. Published history
@@ -438,7 +469,71 @@ var historyRules = []rule{{
 		return []lint.Problem{lint.Warnf("OSS-710",
 			"%d commit body(s) narrate the work: %q", len(hits), quote).At(hits[0])}
 	},
+}, {
+	id: "OSS-711", severity: lint.Warn,
+	title: "No commit body has grown into a report of the session",
+	why: "A convention that asks for quality and never mentions length produces long " +
+		"messages, because plain English, whole sentences and writing for somebody who was " +
+		"not there are each satisfied by writing more. One project's bodies ran to a median " +
+		"of 20 words under a convention with an implicit ceiling, and averaged 98 in the " +
+		"first nine commits after it was dropped. A body answers the question the subject " +
+		"leaves and then stops. The rest is the pull request's job.",
+	check: func(l *Linter) []lint.Problem {
+		log, err := l.repo.Git("log", "--format=%H%x00%b%x1e")
+		if err != nil {
+			return []lint.Problem{lint.Skipf("OSS-711", "no git history")}
+		}
+		var long, sprawling []string
+		var total, worst int
+		var worstSHA string
+		for rec := range strings.SplitSeq(log, "\x1e") {
+			sha, body, found := strings.Cut(strings.TrimLeft(rec, "\n"), "\x00")
+			if !found {
+				continue
+			}
+			words, paras := bodyProse(body)
+			if words == 0 {
+				continue
+			}
+			total++
+			if words > maxBodyWords {
+				long = append(long, shortSHA(sha))
+			}
+			if paras > maxBodyParagraphs {
+				sprawling = append(sprawling, shortSHA(sha))
+			}
+			if words > worst {
+				worst, worstSHA = words, shortSHA(sha)
+			}
+		}
+		if total == 0 {
+			return []lint.Problem{lint.Skipf("OSS-711", "no commit carries a body")}
+		}
+		var out []lint.Problem
+		if len(long) > 0 {
+			out = append(out, lint.Warnf("OSS-711",
+				"%d of %d bodies run past %d words; the longest runs to %d",
+				len(long), total, maxBodyWords, worst).At(worstSHA))
+		}
+		if len(sprawling) > 0 {
+			out = append(out, lint.Warnf("OSS-711",
+				"%d of %d bodies run to more than %d paragraphs; read them for the one that "+
+					"reports the session rather than the change",
+				len(sprawling), total, maxBodyParagraphs).At(sprawling[0]))
+		}
+		return out
+	},
 }}
+
+// maxBodyWords and maxBodyParagraphs are where a body stops answering the
+// question the subject left and starts reporting the session. Set well past
+// what a good body needs, so the rule fires on the shape rather than on one
+// long sentence. Not a convention to state in CONTRIBUTING: a number stated
+// there becomes the length messages get written to.
+const (
+	maxBodyWords      = 120
+	maxBodyParagraphs = 2
+)
 
 // maxBodyBullets is where a body stops carrying points and starts being
 // filled to a shape. Not a convention to state in CONTRIBUTING: naming a

@@ -872,6 +872,31 @@ func TestProcessNarrationIsReported(t *testing.T) {
 	}
 }
 
+func TestALongCommitBodyIsReported(t *testing.T) {
+	long := "Move the retry budget onto the client\n\n" +
+		strings.Repeat("The old budget lived on the transport, so two clients sharing one "+
+			"transport shared a budget neither of them declared. ", 12) + "\n"
+	if got := runHistory(t, "OSS-711", history(t, long)); len(got) == 0 {
+		t.Error("a body of 200 words passed")
+	}
+	sprawl := history(t, "Move the retry budget onto the client\n\nOne.\n\nTwo.\n\nThree.\n")
+	found := false
+	for _, p := range runHistory(t, "OSS-711", sprawl) {
+		if strings.Contains(p.Message, "paragraphs") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("a three-paragraph body passed")
+	}
+	short := history(t, "Move the retry budget onto the client\n\n"+
+		"Two clients sharing one transport shared a budget neither declared.\n\n"+
+		"Co-Authored-By: Someone <nobody@example.com>\n")
+	if got := runHistory(t, "OSS-711", short); len(got) != 0 {
+		t.Errorf("a one-sentence body was reported: %v", got)
+	}
+}
+
 func TestConventionalCommitPrefixIsReported(t *testing.T) {
 	prefixed := history(t, "feat(auth): add a token cache", "fix: correct the parse")
 	found := false
