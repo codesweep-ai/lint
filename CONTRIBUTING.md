@@ -7,7 +7,7 @@ file before you change anything and follow it.
 For a security issue, use GitHub's private vulnerability reporting on this
 repository's Security tab, rather than opening a public issue.
 
-## How a change gets in
+## Submitting a change
 
 File a bug or an idea as a GitHub issue on this repository. For a fix that
 stands on its own, a pull request on its own is enough. For anything that adds
@@ -19,10 +19,10 @@ design gets settled before you write it.
 3. Run `make check`, which is the same gate CI runs.
 4. Open a pull request against `main`, and say what the change does and why.
 
-Review asks four questions. Does the change hold the invariants below? Does a
-test fail without it? Does every user-visible change land in exactly one
-document? Does the history read the way this file describes? Expect comments
-rather than silence, and expect a small change to move quickly.
+Expect comments rather than silence, and expect a small change to move
+quickly. A reviewer asks whether the change keeps the design rules below,
+whether a test fails without it, and where a reader would find it
+documented.
 
 By opening a pull request you agree that your contribution ships under the
 [Apache 2.0 licence](LICENSE) this project is released under.
@@ -47,43 +47,42 @@ go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 go install golang.org/x/tools/cmd/deadcode@latest
 ```
 
-## What a change must not break
+## Design rules
+
+Your change has to keep these. Each one names the test or the review that
+holds it.
 
 **A rule never guesses.** Every check compares a document against something
 that cannot lie: the tool's own help output, the source, the build file, the
-git history, or the command re-run now. A check that reports a maybe trains
-everyone to read past the whole linter. Review enforces this, and so does the
-rule that anything needing judgement goes in a review pack instead.
+git history, or the command re-run now. Anything that needs judgement goes
+in a review pack instead.
 
-**The tool carries no project knowledge.** No repository name, no glossary, no
-path belongs in a rule. Everything that differs between repositories lives in
-`.cs-lint.yaml`, which is what lets a fix to a check reach every project
-without carrying one project's exceptions into the next. Review enforces this.
+**The tool carries no project knowledge.** No repository name, no glossary,
+no path belongs in a rule. Everything that differs between repositories
+lives in `.cs-lint.yaml`, so a fix to a check reaches every project at once.
 
-**Every exception is reviewable.** A waiver is a rule identifier and the reason
-it was traded away, and the reason is printed with the finding. A waiver with
-no reason is a rule deleted in private. Enforced by the configuration schema,
-where the reason is the value rather than an optional comment.
+**Every exception is reviewable.** A waiver is a rule identifier and the
+reason it was traded away, and the reason is printed with the finding. The
+configuration schema makes the reason the value rather than an optional
+comment.
 
-**A check that could not run reports a skip.** Never a pass. A run that
-verified nothing must never read as a run that verified everything. Enforced by
-the tests, which assert a skip where a tool is absent.
+**A check that could not run reports a skip**, never a pass. The tests
+assert a skip wherever a tool is absent.
 
-**One broken check does not hide the rest.** A rule that fails while running is
-reported as that rule failing, and the other sixty still run. Enforced by a
-test that panics inside a rule and asserts the run survives.
+**One broken check does not hide the rest.** A rule that fails while running
+is reported as that rule failing, and the others still run. A test panics
+inside a rule and asserts the run survives.
 
-**The tool writes nothing.** Every subcommand is read-only. A checker that
-writes can mask the staleness another gate exists to catch. Review enforces
-this.
+**The tool writes nothing.** Every subcommand is read-only, so a checker can
+never mask the staleness another gate exists to catch.
 
-## Tests are part of the change
+## Tests
 
-A new rule ships with a test that fires it on a deliberate violation and stays
-quiet on the clean case. Both halves matter: a rule with only the first test
-can be a rule that reports everything.
+Ship a new rule with two tests: one that fires it on a deliberate violation,
+one that stays quiet on the clean case. Both halves matter, because a rule with
+only the first can be a rule that reports everything.
 
-A fix ships with a test that fails against the unmodified code. Write the test,
+Ship a fix with a test that fails against the unmodified code. Write the test,
 watch it fail, then fix. A test that passes before the change tested nothing.
 
 Coverage is measured on every `make test` and gated at a floor by
@@ -92,26 +91,22 @@ make a run green.
 
 ## Commits
 
-Keep one idea per commit. If a change will not fit that shape, it is doing more
-than one thing, so split it.
+**Keep it short.** One idea per commit, and a message a reader takes in at a
+glance. If a change will not fit one idea, split it.
 
 **Subject**, always. Under 60 characters, imperative, no trailing period,
 completing *"If applied, this commit will …"*. Say what the change does.
 
-**Body**, only when the subject leaves a real question a reader would otherwise
-have to open the diff to answer. Write the answer in plain English, in whole
-sentences, addressed to somebody who was not there. Wrap it at 72 columns. Most
-commits need no body at all.
+**Body**, rarely. Most commits need none. Add one only when the subject
+leaves a question a reader would otherwise have to open the diff to answer,
+and then answer that question. A sentence or two does it. Wrap it at 72
+columns.
 
-Say what the change does and what constrained it. Leave out how the work was
-scheduled, how it was tested, and what prompted it. The reason a rule exists
-belongs beside the rule in [`SPEC.md`](SPEC.md), and the investigation that
-found it belongs in the pull request.
-
-Where a body carries more than one independent point, one line each reads
-better than a paragraph. Never reach for another point to fill the shape. A
-line that restates the subject in different words is worse than no body, and a
-body written to a length is the commonest way a message stops being read.
+Leave out how the work was scheduled, how you tested it, and what led you to
+it, and stop once the question is answered. A second paragraph usually means
+the message has turned into a report of the session. The reason a rule
+exists belongs beside the rule in [`SPEC.md`](SPEC.md), and the
+investigation that found it belongs in the pull request.
 
 ```
 Reject a manifest that names a file the rework deleted
@@ -122,13 +117,6 @@ Report a skip when the tool a rule shells out to is absent
 
 A run that verified nothing must never read as a run that verified
 everything, and a machine without goreleaser is the common case.
-```
-
-```
-Sort the findings by rule, then by path
-
-- Map order made two runs of one repository disagree.
-- The report is diffed in CI, so order is data.
 ```
 
 Keep the `Co-Authored-By:` trailer when an agent wrote the change. Drop any
@@ -171,8 +159,8 @@ worse than no check.
 
 ## Writing
 
-Six principles carry the voice. Read them before you write a document, and
-apply them when you edit one:
+Six principles do most of the work. Read them before you write a document,
+and apply them when you edit one:
 
 1. **Introduce a term where you first use it**, in the same sentence, or link
    to the page that defines it. A reader should never meet a word the docs have
@@ -199,15 +187,10 @@ what each one wants and the guidance behind it:
 cs-lint docs --explain
 ```
 
-That listing is the authority. Where this section and the linter disagree, the
-linter is right and this section is a bug. Every knob lives in
-[`.cs-lint.yaml`](.cs-lint.yaml), and a check that reports noise is a check to
-fix rather than a report to work around.
-
-**What not to change.** This project's voice is a strength: concrete,
-opinionated, free of marketing padding. These rules are about mechanics. Where
-one of them fights the voice, the voice wins, and the exception is worth a
-sentence in the pull request.
+That listing is the authority. Where this section and the linter disagree,
+the linter is right. Every knob lives in [`.cs-lint.yaml`](.cs-lint.yaml),
+and a check that reports noise is a check to fix rather than a report to
+work around.
 
 ## AI-assisted contributions
 
