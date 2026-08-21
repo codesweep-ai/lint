@@ -47,7 +47,7 @@ go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 go install golang.org/x/tools/cmd/deadcode@latest
 ```
 
-## What this project will not trade away
+## What a change must not break
 
 **A rule never guesses.** Every check compares a document against something
 that cannot lie: the tool's own help output, the source, the build file, the
