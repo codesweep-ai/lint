@@ -1,8 +1,31 @@
 # Contributing to cs-lint
 
-Bug reports and pull requests are welcome. For a security issue, use GitHub's
-private vulnerability reporting on this repository's Security tab, rather than
-opening a public issue.
+Bug reports and pull requests are welcome. These rules apply to humans and
+coding agents alike. If you are an agent working in this repository, read this
+file before you change anything and follow it.
+
+For a security issue, use GitHub's private vulnerability reporting on this
+repository's Security tab, rather than opening a public issue.
+
+## How a change gets in
+
+File a bug or an idea as a GitHub issue on this repository. For a fix that
+stands on its own, a pull request on its own is enough. For anything that adds
+a rule, changes a report or moves a boundary, open an issue first, so the
+design gets settled before you write it.
+
+1. Fork the repository, and create a branch off `main`.
+2. Make the change, with its test.
+3. Run `make check`, which is the same gate CI runs.
+4. Open a pull request against `main`, and say what the change does and why.
+
+Review asks four questions. Does the change hold the invariants below? Does a
+test fail without it? Does every user-visible change land in exactly one
+document? Does the history read the way this file describes? Expect comments
+rather than silence, and expect a small change to move quickly.
+
+By opening a pull request you agree that your contribution ships under the
+[Apache 2.0 licence](LICENSE) this project is released under.
 
 ## Before you push
 
@@ -75,10 +98,38 @@ than one thing, so split it.
 **Subject**, always. Under 60 characters, imperative, no trailing period,
 completing *"If applied, this commit will …"*. Say what the change does.
 
-**Body**, only when the subject leaves a real question. Use bullets, one line
-each, under 60 characters, describing the design: the shape the change takes,
-or the constraint that ruled out the obvious alternative. Do not describe the
-diff, and do not describe how you arrived at it.
+**Body**, only when the subject leaves a real question a reader would otherwise
+have to open the diff to answer. Write the answer in plain English, in whole
+sentences, addressed to somebody who was not there. Wrap it at 72 columns. Most
+commits need no body at all.
+
+Say what the change does and what constrained it. Leave out how the work was
+scheduled, how it was tested, and what prompted it. The reason a rule exists
+belongs beside the rule in [`SPEC.md`](SPEC.md), and the investigation that
+found it belongs in the pull request.
+
+Where a body carries more than one independent point, one line each reads
+better than a paragraph. Never reach for another point to fill the shape. A
+line that restates the subject in different words is worse than no body, and a
+body written to a length is the commonest way a message stops being read.
+
+```
+Reject a manifest that names a file the rework deleted
+```
+
+```
+Report a skip when the tool a rule shells out to is absent
+
+A run that verified nothing must never read as a run that verified
+everything, and a machine without goreleaser is the common case.
+```
+
+```
+Sort the findings by rule, then by path
+
+- Map order made two runs of one repository disagree.
+- The report is diffed in CI, so order is data.
+```
 
 Keep the `Co-Authored-By:` trailer when an agent wrote the change. Drop any
 trailer linking to the agent's session or transcript. Such a link is private to
@@ -120,46 +171,59 @@ worse than no check.
 
 ## Writing
 
-These rules come from
-[Google's developer documentation style guide](https://developers.google.com/style),
-from the
-[Red Hat supplementary style guide](https://redhat-documentation.github.io/supplementary-style-guide/),
-and from repeated review of what actually confuses readers. `cs-lint docs`
-checks the mechanical half, and running it against this repository is part of
-`make check`.
+Six principles carry the voice. Read them before you write a document, and
+apply them when you edit one:
 
 1. **Introduce a term where you first use it**, in the same sentence, or link
    to the page that defines it. A reader should never meet a word the docs have
    not explained.
-2. **Give every sentence a subject and a verb.** "Two version numbers, one
+2. **State the point first, then qualify it.** Opening with the qualifier makes
+   the reader decode the sentence backwards.
+3. **Give every sentence a subject and a verb.** "Two version numbers, one
    verdict, one remedy" reads as knowing rather than clear. Say what the thing
    is.
-3. **State the point first, then qualify it.** Opening with the qualifier makes
-   the reader decode the sentence backwards.
-4. **Keep sentences under 30 words**, and to one idea each.
-5. **No em-dash.** The aside one introduces is a full stop, a comma, or a cut.
-   It is also the first punctuation a model reaches for, so a page full of them
-   reads as unedited whoever wrote it.
-6. **Address the reader as "you"**, and use the imperative for steps.
-7. **Keep the evidence out of the instructions.** A war story explains a
-   decision. Put it in an explanation section, not in the middle of a task.
-8. **Make every example runnable as written.** If a step invokes a script, show
-   the script first. A reader should never meet a file they were not given.
-9. **Do not comment on your own writing.** Delete the frame and keep the
-   sentence: "it is worth stating plainly", "put simply", "the point is".
-10. **Do not explain a design by contrast with a worse one.** Say what it is
-    and what you get.
-11. **Leave out what does not matter.** Every fact you print is one the reader
-    has to decide whether to act on.
-12. **A walkthrough is steps that work.** Put the reasons somewhere else.
-13. **An ordered procedure is a numbered list, not a sentence.**
-14. **Describe what the software does, not how it came to do it.** Leave out
-    what the project used to do, what was tried and dropped, and numbers from a
-    run someone did once.
-15. **Do not make the reader hold two halves of a sentence apart.** Name the
-    subject in each clause.
+4. **A walkthrough is steps that work.** Put the reasons somewhere else. A
+   reader working through one wants commands that run.
+5. **Describe what the software does, not how it came to do it.** Leave out
+   what the project used to do, what was tried and dropped, and numbers from a
+   run somebody did once.
+6. **Do not explain a design by contrast with a worse one.** Say what it is and
+   what you get, rather than asking the reader to picture a design nobody
+   proposed.
 
-**What not to change.** A project's voice is usually a strength: concrete,
+The mechanical rules are enforced rather than restated here. `cs-lint docs`
+carries them, `make check` runs it over this repository, and `--explain` prints
+what each one wants and the guidance behind it:
+
+```bash
+cs-lint docs --explain
+```
+
+That listing is the authority. Where this section and the linter disagree, the
+linter is right and this section is a bug. Every knob lives in
+[`.cs-lint.yaml`](.cs-lint.yaml), and a check that reports noise is a check to
+fix rather than a report to work around.
+
+**What not to change.** This project's voice is a strength: concrete,
 opinionated, free of marketing padding. These rules are about mechanics. Where
 one of them fights the voice, the voice wins, and the exception is worth a
 sentence in the pull request.
+
+## AI-assisted contributions
+
+An agent wrote most of this repository, and you are welcome to use one. The
+standard is the same either way: you are responsible for what you submit.
+
+Point your tool at [`AGENTS.md`](AGENTS.md), which routes it to the documents
+that hold the conventions, and check three things before you open the pull
+request:
+
+- You understand every line, and can answer a question about it without going
+  back to the tool.
+- You ran `make check` and it passed.
+- You cut what the tool added to fill space. A model pads a commit body to the
+  shape it was shown, and comments that restate the code around them. Both read
+  as noise to a maintainer, and both are yours to remove.
+
+Keep the `Co-Authored-By:` trailer, which is how the work is disclosed. An
+unattended agent must not open pull requests or comment on this repository.
