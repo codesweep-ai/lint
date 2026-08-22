@@ -355,6 +355,23 @@ func TestAnOrdinaryVerbNeedsNoProjectEntry(t *testing.T) {
 	}
 }
 
+func TestAnInflectedVerbIsStillAVerb(t *testing.T) {
+	// A verb carried only in its bare form reports every other inflection as
+	// verbless, which reads as the rule rejecting ordinary English.
+	for _, s := range []string{
+		"So nothing tries to diagnose it.",
+		"The ladder tried the cheaper remedy first.",
+		"The dispatcher attempts the cheap remedy first.",
+		"It attempted the restart once.",
+		"Nothing diagnoses the failure.",
+		"The host diagnosed it from the reply.",
+	} {
+		if ids := check(t, config.Docs{}, "# D\n\n"+s+"\n"); has(ids, "DOC-102") {
+			t.Errorf("a real sentence was read as an epigram: %q: %v", s, ids)
+		}
+	}
+}
+
 func TestABulletIsNotASentence(t *testing.T) {
 	if ids := check(t, config.Docs{}, "- one verdict, one remedy\n"); has(ids, "DOC-102") {
 		t.Errorf("a bullet was read as a sentence: %v", ids)

@@ -35,7 +35,7 @@ reaches?|stays?|target|resolves?|state|say|note|fold|split|number|cut|
 delete|links?|output|discovers?|produced|caught|moves?|repoint|fix|becomes|
 measure|generate|capture|paste|feed|check|run|add|show|list|name|bury|
 document|confirm|record|report|prove|extend|tune|wire|ship|drop|keep|sets?|
-bumps?|catches|catch|edits?|copies|copy|write|read|pass|try|editing|
+bumps?|catches|catch|edits?|copies|copy|write|read|pass|tr(?:y|ies|ied)|editing|
 pointing|running|recording|replaying|calling|adding|search|classify|reorder|
 imports?|invalidates?|renders?|validates?|iterates?|quote|reproduce|rewrite|matters?|
 mint|land|share|scrolls?|handles?|assert|drives?|exercise|push|comments?|
@@ -53,4 +53,5 @@ anchors?|wedge|trips?|owes?|rules?|shaped?|simplifying|reintroduces?|
 rebuild|scrape|cycles?|supersedes?|steps?|enforces?|bounds?|generates?|
 suffices?|suffice|
 establish(?:es)?|remain(?:s)?|reflects?|performs?|composes?|states?|become|
-prevent(?:s)?|talks?|talk|supervis(?:e|es|ing)|delegates?|judges?`
+prevent(?:s)?|talks?|talk|supervis(?:e|es|ing)|delegates?|judges?|
+attempts?|attempted|diagnos(?:e|es|ed)`
