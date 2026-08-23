@@ -334,7 +334,7 @@ cs-lint oss --review > /tmp/review.md
 
 ## See also
 
-- [`README.md`](README.md): what this is, and how to run it.
-- [`INSTALL.md`](INSTALL.md): how to get the tool.
-- [`SPEC.md`](SPEC.md): what the behaviour must be, and what is left open.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md): how to work on it.
+- [README.md](README.md) · what this is, and how to run it.
+- [INSTALL.md](INSTALL.md) · how to get the tool.
+- [SPEC.md](SPEC.md) · what the behaviour must be, and what is left open.
+- [CONTRIBUTING.md](CONTRIBUTING.md) · how to work on it.

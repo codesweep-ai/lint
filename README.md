@@ -147,15 +147,15 @@ reason is a value rather than a comment.
 
 ## Docs
 
-- [`INSTALL.md`](INSTALL.md): how to get the tool, and the setup it needs once.
-- [`MANUAL.md`](MANUAL.md): the full surface: commands, options, settings, exit codes.
-- [`SPEC.md`](SPEC.md): what the behaviour must be, and what is left open.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md): conventions, and the rituals a diff does not show.
-- [`AGENTS.md`](AGENTS.md): where an agent looks first.
+- [INSTALL.md](INSTALL.md) · how to get the tool, and the setup it needs once
+- [MANUAL.md](MANUAL.md) · the full surface: commands, options, settings, exit codes
+- [SPEC.md](SPEC.md) · what the behaviour must be, and what is left open
+- [CONTRIBUTING.md](CONTRIBUTING.md) · conventions, and the rituals a diff does not show
+- [AGENTS.md](AGENTS.md) · where an agent looks first
 
 ## Contributing
 
-Read [`CONTRIBUTING.md`](CONTRIBUTING.md), and run `make check` before you push.
+Read [CONTRIBUTING.md](CONTRIBUTING.md), and run `make check` before you push.
 
 ## License
 
