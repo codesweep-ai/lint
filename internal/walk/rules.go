@@ -1,6 +1,7 @@
 package walk
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -686,7 +687,74 @@ var rules = []rule{{
 		}
 		return out
 	},
+}, {
+	id: "WALK-603", severity: lint.Error,
+	title: "Every issue this repository cites has a record",
+	why: "An identifier in a comment or a help string is a promise that somewhere there is " +
+		"an account of why the code is shaped that way. A citation whose record is gone " +
+		"sends its reader looking for something nobody can find, and nothing else notices: " +
+		"a ledger reports on itself, and the citations live outside it.",
+	check: func(l *Linter) []lint.Problem {
+		prefix, ok := ledgerPrefix(l)
+		if !ok {
+			return []lint.Problem{lint.Skipf("WALK-603", "no ledger/ledger.json at the root")}
+		}
+		have := map[string]bool{}
+		for _, path := range l.repo.Tracked() {
+			if m := ledgerRecord.FindStringSubmatch(path); m != nil {
+				have[m[1]] = true
+			}
+		}
+		if len(have) == 0 {
+			return []lint.Problem{lint.Skipf("WALK-603", "the ledger holds no records to cite")}
+		}
+		cite := regexp.MustCompile(`\b(` + regexp.QuoteMeta(prefix) + `-\d+)\b`)
+		// Where each missing id was first seen, so the finding names a file to
+		// open rather than an identifier to hunt for.
+		at := map[string]string{}
+		note := func(path, body string) {
+			if strings.HasPrefix(path, "ledger/") {
+				return
+			}
+			for _, m := range cite.FindAllStringSubmatch(body, -1) {
+				if !have[m[1]] {
+					if _, seen := at[m[1]]; !seen {
+						at[m[1]] = path
+					}
+				}
+			}
+		}
+		l.Source(note)
+		for _, doc := range l.Docs() {
+			note(doc, l.text[doc])
+		}
+		var out []lint.Problem
+		for _, id := range lint.SortedKeys(at) {
+			out = append(out, lint.Errorf("WALK-603",
+				"%s is cited here and the ledger holds no such record", id).At(at[id]))
+		}
+		return out
+	},
 }}
+
+// ledgerRecord matches one record's file, whose name is the identifier.
+var ledgerRecord = regexp.MustCompile(`^ledger/issues/([A-Z]+-\d+)\.json$`)
+
+// ledgerPrefix reads the identifier prefix the ledger mints, so a citation is
+// recognised by the shape this repository actually uses.
+func ledgerPrefix(l *Linter) (string, bool) {
+	body, ok := l.repo.Read("ledger/ledger.json")
+	if !ok {
+		return "", false
+	}
+	var meta struct {
+		IDPrefix string `json:"idPrefix"`
+	}
+	if json.Unmarshal([]byte(body), &meta) != nil || meta.IDPrefix == "" {
+		return "", false
+	}
+	return meta.IDPrefix, true
+}
 
 func nonEmpty(lines []string) []string {
 	var out []string

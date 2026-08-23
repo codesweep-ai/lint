@@ -450,8 +450,8 @@ func TestEveryRuleIsExplained(t *testing.T) {
 			t.Errorf("%s has no title or no reason", r.ID)
 		}
 	}
-	if len(seen) != 16 {
-		t.Errorf("%d rules are registered, want 16", len(seen))
+	if len(seen) != 17 {
+		t.Errorf("%d rules are registered, want 17", len(seen))
 	}
 }
 
@@ -546,5 +546,48 @@ func TestBlocksAreFoundInEveryDocument(t *testing.T) {
 	l := New(config.Walkthrough{Docs: []string{"README.md", "MANUAL.md"}}, linttest.Repo(t, files))
 	if got := len(l.Blocks()); got != 3 {
 		t.Errorf("found %d blocks, want 3", got)
+	}
+}
+
+// A citation is a promise that somewhere there is an account of why the code is
+// shaped that way. Nothing else catches a broken one: a ledger reports on
+// itself, and the citations live outside it. Measured on a repository whose
+// ledger was reset for publication, where fourteen identifiers in help strings
+// and requirements went on naming records that had been removed.
+func TestCitedIssuesHaveRecords(t *testing.T) {
+	files := map[string]string{
+		"ledger/ledger.json":             `{"project":"x","idPrefix":"SAC"}`,
+		"ledger/issues/SAC-001.json":     `{"id":"SAC-001"}`,
+		"MANUAL.md":                      "# Manual\n\nAudit the evidence (SAC-009).\n",
+		"internal/x.go":                  "package x\n\n// The pin is recorded deliberately (SAC-006).\nvar X = 1\n",
+		"ledger/issues/SAC-002.json.bak": `{"id":"SAC-002"}`,
+	}
+	got := run(t, "WALK-603", config.Walkthrough{Docs: []string{"MANUAL.md"}}, files)
+	if len(got) != 2 {
+		t.Fatalf("got %v, want SAC-006 and SAC-009 both reported", got)
+	}
+	joined := got[0].Message + " " + got[1].Message
+	for _, want := range []string{"SAC-006", "SAC-009"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("%s was not reported: %v", want, got)
+		}
+	}
+
+	// The record that does exist is not reported, and neither is the ledger's
+	// own mention of an identifier it holds no record for.
+	files["MANUAL.md"] = "# Manual\n\nThe first record is SAC-001.\n"
+	files["internal/x.go"] = "package x\n\n// See SAC-001.\nvar X = 1\n"
+	files["ledger/queue.json"] = `{"items":[{"id":"SAC-404"}]}`
+	if got := run(t, "WALK-603", config.Walkthrough{Docs: []string{"MANUAL.md"}}, files); len(got) != 0 {
+		t.Errorf("a citation with a record, or one inside the ledger, was reported: %v", got)
+	}
+}
+
+// A repository with no ledger is not a repository with broken citations.
+func TestCitedIssuesSkipsWithoutALedger(t *testing.T) {
+	files := map[string]string{"MANUAL.md": "# Manual\n\nSomething about SAC-009.\n"}
+	got := run(t, "WALK-603", config.Walkthrough{Docs: []string{"MANUAL.md"}}, files)
+	if len(got) != 1 || got[0].Severity != lint.Skip {
+		t.Errorf("got %v, want a skip", got)
 	}
 }
