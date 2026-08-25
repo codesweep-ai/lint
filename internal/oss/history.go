@@ -21,10 +21,21 @@ var (
 	privateBranch = regexp.MustCompile(`(?i)(?:^|[-_/])(?:backup|bak|wip|old|tmp|temp|scratch|orig|snapshot)` +
 		`(?:[-_/]|\d|$)|^pre-`)
 
-	// A conventional-commit prefix. It names a category rather than a change,
-	// and the category is already in the diff.
-	commitPrefix = regexp.MustCompile(`^(?:feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)` +
-		`(?:\([^)]*\))?!?:\s`)
+	// A category label opening a subject: a conventional-commit type, one of
+	// the words projects reach for instead, or a bracketed tag. All three fail
+	// the same way. The category is already in the diff, and the subject is the
+	// one line a reader has for what the change does.
+	//
+	// Matched without regard to case, because `Fix:` is the same label as
+	// `fix:`. The label has to be the whole first token and take a colon or a
+	// bracket, so a subject that opens with one of these words and goes on to
+	// say something is left alone.
+	commitPrefix = regexp.MustCompile(`(?i)^(?:\[[^\]]+\]\s*|(?:` +
+		`feat|feature|fix|bugfix|hotfix|patch|chore|chores|docs?|style|` +
+		`refactor|refactoring|perf|test|tests|build|ci|cd|revert|deps|dep|` +
+		`release|merge|wip|misc|cleanup|clean-up|init|security|breaking|` +
+		`improvement|enhancement|update|add|remove|rename|typo|nit|minor|major` +
+		`)(?:\([^)]*\))?!?:\s)`)
 
 	// A trailer: a key and a value on one line at the foot of a message.
 	// Metadata rather than prose, so the length rules do not count it.
@@ -172,10 +183,15 @@ var historyRules = []rule{{
 		}}
 	},
 }, {
-	id: "OSS-702", severity: lint.Warn,
+	id: "OSS-702", severity: lint.Error,
 	title: "Commit subjects read the way CONTRIBUTING says",
 	why: "The history is published too, and it is the first thing a reader who wants to " +
-		"trust the project scrolls through.",
+		"trust the project scrolls through. A category label opening the subject fails the " +
+		"run rather than warning: it is the one of these that spreads, because the next " +
+		"contributor copies the last subject they saw, and it is free to fix before the " +
+		"commit is pushed. Publishing does not stop it spreading, so it stays an error " +
+		"after publication, where a history that already carries labels waives it with the " +
+		"reason. The rest print and pass.",
 	check: func(l *Linter) []lint.Problem {
 		log, err := l.repo.Git("log", "--format=%h %s")
 		if err != nil {
@@ -215,12 +231,22 @@ var historyRules = []rule{{
 			{"open in lower case", badCase},
 			{"are over 60 characters", tooLong},
 			{"end with a full stop", trailing},
-			{"open with a conventional-commit prefix, which names a category rather than a change", prefixed},
 		} {
 			if len(g.hits) > 0 {
 				out = append(out, lint.Warnf("OSS-702", "%d of %d commit subjects %s",
 					len(g.hits), len(lines), g.label).At(g.hits[0]))
 			}
+		}
+		if len(prefixed) > 0 {
+			// An unpushed commit is amended in a second, so this fails the run.
+			// It goes on failing after publication, unlike the leak scans over
+			// the history: those describe what is already out, and this one
+			// describes what the next contributor will copy. A repository
+			// whose published history already carries labels waives it.
+			out = append(out, lint.Errorf("OSS-702",
+				"%d of %d commit subjects open with a category label, which names a "+
+					"category rather than a change; `git commit --amend` before you push",
+				len(prefixed), len(lines)).At(prefixed[0]))
 		}
 		return out
 	},

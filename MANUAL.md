@@ -376,6 +376,19 @@ A tracked file that is neither valid text nor a declared binary asset. Remove
 it, or add its extension to `binaryOK` if it is a legitimate asset. A file
 nobody can inspect must never be reported as clean.
 
+**`OSS-702 ... commit subjects open with a category label`**
+
+The subject opens with `feat:`, `fix(cli):`, `[docs]` or another category
+label. The category is already in the diff, and the subject is the one line a
+reader has for what the change does. Run `git commit --amend` on a commit you
+have not pushed.
+
+Unlike the leak scans over the history, this one stays an error after
+publication: those describe what is already out, and this one describes what
+the next contributor copies. A published history that already carries labels
+cannot be rewritten, so waive `OSS-702` under `oss.allow` with that as the
+reason.
+
 **`OSS-502 a path outside the repository`, pointing at a file under `scripts/`**
 
 A script or a build file names a `../` path that does not resolve. Where the

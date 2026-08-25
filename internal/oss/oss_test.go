@@ -830,7 +830,12 @@ func history(t *testing.T, messages ...string) *lint.Repo {
 
 func runHistory(t *testing.T, id string, repo *lint.Repo) []lint.Problem {
 	t.Helper()
-	l := New(config.Default().OSS, repo)
+	return runHistoryAs(t, id, repo, config.Default().OSS)
+}
+
+func runHistoryAs(t *testing.T, id string, repo *lint.Repo, cfg config.OSS) []lint.Problem {
+	t.Helper()
+	l := New(cfg, repo)
 	for _, r := range rules {
 		if r.id == id {
 			return l.runOne(r)
@@ -897,21 +902,98 @@ func TestALongCommitBodyIsReported(t *testing.T) {
 	}
 }
 
-func TestConventionalCommitPrefixIsReported(t *testing.T) {
-	prefixed := history(t, "feat(auth): add a token cache", "fix: correct the parse")
-	found := false
-	for _, p := range runHistory(t, "OSS-702", prefixed) {
-		if strings.Contains(p.Message, "conventional-commit prefix") {
-			found = true
+// labelled finds the category-label finding, which is the one of OSS-702's
+// four that fails the run.
+func labelled(problems []lint.Problem) *lint.Problem {
+	for i, p := range problems {
+		if strings.Contains(p.Message, "category label") {
+			return &problems[i]
 		}
 	}
-	if !found {
-		t.Error("a conventional-commit prefix passed")
+	return nil
+}
+
+func TestACategoryLabelFailsTheRun(t *testing.T) {
+	// The label is free to fix while the commit is unpushed, and it spreads:
+	// the next contributor copies the last subject they saw.
+	prefixed := history(t, "feat(auth): add a token cache", "fix: correct the parse")
+	got := labelled(runHistory(t, "OSS-702", prefixed))
+	if got == nil {
+		t.Fatal("a conventional-commit prefix passed")
 	}
-	plain := history(t, "Add a token cache to the resolver")
-	for _, p := range runHistory(t, "OSS-702", plain) {
-		if strings.Contains(p.Message, "conventional-commit prefix") {
-			t.Errorf("a plain subject was reported: %v", p)
+	if got.Severity != lint.Error {
+		t.Errorf("a category label reported %s, want error", got.Severity)
+	}
+}
+
+// A conventional-commit type is one shape of the same mistake. The words
+// projects reach for instead, and a bracketed tag, are the others.
+func TestEveryCategoryLabelShapeIsReported(t *testing.T) {
+	for _, subject := range []string{
+		"feat!: split the linter in two",
+		"Fix: correct the parse",
+		"chore(deps): bump the parser",
+		"bugfix: correct the parse",
+		"WIP: still working on it",
+		"[docs] Describe the four linters",
+		"cleanup: drop the dead branch",
+		"update: refresh the fixtures",
+	} {
+		if labelled(runHistory(t, "OSS-702", history(t, subject))) == nil {
+			t.Errorf("%q passed", subject)
+		}
+	}
+}
+
+// The label has to be the whole first token and take a colon or a bracket, so
+// a subject that opens with one of these words and goes on to say something is
+// left alone.
+func TestAPlainSubjectIsNotACategoryLabel(t *testing.T) {
+	for _, subject := range []string{
+		"Add a token cache to the resolver",
+		"Update the manifest the rework deleted",
+		"Revert \"Add a token cache to the resolver\"",
+		"Merge branch 'main' into the rework",
+		"Fix the parse of a continued line",
+		"Report a skip when the tool is absent",
+	} {
+		if p := labelled(runHistory(t, "OSS-702", history(t, subject))); p != nil {
+			t.Errorf("%q was reported: %v", subject, *p)
+		}
+	}
+}
+
+// Publishing does not stop the label spreading, so it stays an error there,
+// unlike the leak scans over the history. Those describe what is already out;
+// this one describes what the next contributor will copy.
+func TestACategoryLabelStaysAnErrorOncePublished(t *testing.T) {
+	cfg := config.Default().OSS
+	cfg.Published = true
+	prefixed := history(t, "feat(auth): add a token cache")
+	got := labelled(runHistoryAs(t, "OSS-702", prefixed, cfg))
+	if got == nil {
+		t.Fatal("a published repository stopped reporting the label at all")
+	}
+	if got.Severity != lint.Error {
+		t.Errorf("a published repository reported %s, want error", got.Severity)
+	}
+}
+
+// A published history that already carries labels cannot be rewritten, so the
+// waiver is the way out and it records why.
+func TestACategoryLabelIsWaivable(t *testing.T) {
+	cfg := config.Default().OSS
+	cfg.Allow = map[string]string{"OSS-702": "the labels predate the convention and the history is public"}
+	prefixed := history(t, "feat(auth): add a token cache")
+	l := New(cfg, prefixed)
+	for _, r := range rules {
+		if r.id != "OSS-702" {
+			continue
+		}
+		for _, p := range lint.Waive(l.runOne(r), cfg.Allow) {
+			if p.Severity == lint.Error {
+				t.Errorf("a waived rule still failed the run: %v", p)
+			}
 		}
 	}
 }

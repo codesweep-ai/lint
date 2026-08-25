@@ -238,9 +238,9 @@ evidence", and honouring it in one scan and not the other leaves a repository
 reporting clean on its tree and red on its history for the same declared
 reason.*
 
-**R38.** The history rules **MUST** report as warnings once the repository is
-declared published. *Published history cannot be rewritten, so the rule becomes
-advice.*
+**R38.** The rules that read the history for a leak **MUST** report as warnings
+once the repository is declared published. *Published history cannot be
+rewritten, so the rule becomes advice.*
 
 **R39.** A rule that asks the forge about the repository **MUST NOT** run
 unless asked.
@@ -280,15 +280,26 @@ writing for a reader who was not there are each satisfied by writing more. The
 threshold belongs in the check rather than in `CONTRIBUTING.md`, where a stated
 number becomes the length messages get written to.*
 
+**R47.** A commit subject opening with a category label **MUST** be reported as
+an error, whether or not the repository is published. The label **MUST** be
+recognised in each of its shapes: a conventional-commit type, one of the words
+projects reach for instead, and a bracketed tag. The other subject conventions
+**MUST** report as warnings. *This one spreads, because the next contributor
+copies the last subject they saw, and it costs one `git commit --amend` to fix
+before the commit is pushed. Publication does not stop it spreading, so the
+error does not soften into advice at the moment the convention starts mattering
+to strangers. A history that already carries labels waives the rule with the
+reason, which is a decision somebody can read.*
+
 ### 4.6 The reference linter
 
-**R47.** The path check **MUST** read every tracked Markdown file, not only the
+**R48.** The path check **MUST** read every tracked Markdown file, not only the
 document set, and a tree it skips **MUST** be declared with a reason. The
 document set **MUST** be checked whatever a skip says. *A nested README makes
 the same claim the document set does, and a path it names that has moved is
 wrong in the same way. A skip nobody can review is a scan deleted in private.*
 
-**R48.** A section citation in the source **MUST** resolve, and a tree it skips
+**R49.** A section citation in the source **MUST** resolve, and a tree it skips
 **MUST** be declared with a reason. The suite **MUST** be read, and no
 `sourceSkip` **MUST** apply. A citation naming no document **MUST** be read
 against the spec, or against the only document that numbers its sections, and
@@ -298,44 +309,44 @@ its next reader as surely as one in production code, and a tree excluded because
 its settings are another program's still cites this repository's own spec. A
 rule that guesses which document was meant reports a finding nobody can act on.*
 
-**R49.** A numbered section **MUST** be recognised as a heading or as a bold
+**R50.** A numbered section **MUST** be recognised as a heading or as a bold
 lead-in. *A spec numbering its rules without adding a level to the table of
 contents is not a spec whose citations are all stale.*
 
-**R50.** A rule in this linter **MUST NOT** depend on the binary the
+**R51.** A rule in this linter **MUST NOT** depend on the binary the
 repository builds. *That is what lets a gate resolve every reference before it
 builds anything, and what makes this the first of the four to answer.*
 
 ### 4.7 The interface linter
 
-**R51.** Every claim **MUST** be compared against something that cannot lie:
+**R52.** Every claim **MUST** be compared against something that cannot lie:
 the tool's help tree, the source that reads a variable, the build file, or the
 command re-run now. *Nothing here guesses what a document ought to say.*
 
-**R52.** The help tree **MUST** be walked rather than assumed, to a depth of
+**R53.** The help tree **MUST** be walked rather than assumed, to a depth of
 three verbs. *A subcommand's own subcommands are where a surface goes
 undocumented.*
 
-**R53.** A verb whose help page is identical to its parent's **MUST NOT** be
+**R54.** A verb whose help page is identical to its parent's **MUST NOT** be
 walked for children. *A tool with no per-verb help answers with the page its
 parent gave, and reading those as children multiplies the tree by itself at
 every level.*
 
-**R54.** A sample **MUST NOT** be re-run unless every command in it names a
+**R55.** A sample **MUST NOT** be re-run unless every command in it names a
 declared safe verb. *A checker that writes can mask the staleness another gate
 exists to catch.*
 
-**R55.** An elision in a recorded line **MUST** match whatever the command
+**R56.** An elision in a recorded line **MUST** match whatever the command
 prints in its place, and everything either side of it **MUST** still match.
 
-**R56.** A variable read only by test code **MUST NOT** be reported as an
+**R57.** A variable read only by test code **MUST NOT** be reported as an
 undocumented setting. *A variable only the suite reads is instrumentation
 rather than a setting.*
 
-**R57.** A variable passed to a child process **MUST NOT** be read as a
+**R58.** A variable passed to a child process **MUST NOT** be read as a
 setting the tool itself reads.
 
-**R58.** Where the tool carries a `manual` verb and the repository carries
+**R59.** Where the tool carries a `manual` verb and the repository carries
 `MANUAL.md`, what the verb prints **MUST** be what the file holds, ignoring a
 trailing newline. Where the verb, the file or the binary is absent, or the verb
 does not exit zero, the rule **MUST** report a skip. The finding **MUST** name
@@ -343,7 +354,7 @@ the first line that differs. *The printed copy is what a machine with no
 checkout reads, so a stale binary sends the wrong answer to the reader least
 able to notice, and the first differing line is where a rebuild shows its work.*
 
-**R59.** Every rule in this linter **MUST** report a skip of its own where
+**R60.** Every rule in this linter **MUST** report a skip of its own where
 there is no binary to ask. *A project that has not wired a build dependency
 still runs the linter, and one collective failure would tell it nothing about
 which checks it lost.*
@@ -489,7 +500,7 @@ test run and gated at a floor.
 
 ## 8. Conformance
 
-An implementation conforms when it satisfies R1 through R59, and when:
+An implementation conforms when it satisfies R1 through R60, and when:
 
 1. `cs-lint <linter> --explain` prints every rule it carries, with its reason.
 2. Every rule that reports a finding appears in that listing.
