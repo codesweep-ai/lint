@@ -32,7 +32,7 @@ A project that wants the same version for everybody pins it in its own
 
 ```bash
 go get -tool github.com/codesweep-ai/lint/cmd/cs-lint@latest
-go tool cs-lint docs
+go tool cs-lint prose
 ```
 
 ### From a release archive
@@ -149,17 +149,17 @@ nothing:
 
 ```bash
 cd ~/code/my-project
-cs-lint docs --list
+cs-lint prose --list
 ```
 
 That prints the Markdown files a prose run would read. If the list is empty or
-carries files that are not this project's prose, the `docs.skipExtra` key is
-what fixes it.
+carries files that are not this project's prose, the `docs.prose.skipExtra` key
+is what fixes it.
 
 Finally, run one linter for real:
 
 ```bash
-cs-lint docs
+cs-lint prose
 ```
 
 It exits 0 when it found nothing, 1 when it found something, and 2 when it
@@ -172,22 +172,25 @@ per linter, and fold them into the one command a contributor already runs
 before pushing:
 
 ```make
-## docs: check the prose against the writing rules
+## docs: check the prose, and the references the documents make
 docs:
-	cs-lint docs
+	cs-lint prose
+	cs-lint refs
 
 ## oss: check that this repo is in a shape it can be published in
 oss:
 	cs-lint oss
 
-## walkthrough: check the docs against the binary, the code and the build
-walkthrough: build
-	cs-lint walkthrough
+## surface: check the docs against the binary, the code and the build
+surface: build
+	cs-lint surface
 
-check: fmt-check vet lint test docs oss walkthrough
+check: fmt-check vet lint test docs oss surface
 ```
 
-`walkthrough` depends on `build` because half its checks ask the binary itself.
+`prose` and `refs` read the tracked tree and nothing else, so they answer
+first and need no build. `surface` depends on `build` because every check in it
+asks the binary itself.
 
 Then give each linter its own CI job, rather than burying it behind the test
 matrix. A linter answers in seconds and reports even when the tests are
@@ -195,7 +198,7 @@ failing:
 
 ```yaml
   docs:
-    name: docs prose
+    name: docs prose and refs
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -221,7 +224,7 @@ non-zero exit, and restore the file:
 
 ```bash
 echo "The the word is written twice." >> README.md
-cs-lint docs; echo "exit $?"      # expect 1
+cs-lint prose; echo "exit $?"     # expect 1
 git checkout -- README.md
 ```
 

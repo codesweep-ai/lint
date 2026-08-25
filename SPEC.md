@@ -1,10 +1,12 @@
 # The cs-lint specification
 
-cs-lint is a command-line tool that checks a repository against three sets of
-rules. They cover how its documents are written, what a published repository
-owes a reader, and whether those documents still describe the software. It reads the
-repository, the git history, and the tool the repository ships, and reports
-what is wrong with a rule identifier and an address.
+cs-lint is a command-line tool that checks a repository against four sets of
+rules. Two of them cover how its documents are written and whether everything
+those documents point at is still there. The other two cover whether the
+interface they describe is the real one, and what a published repository owes a
+reader. It reads the
+repository, the git history, and the tool the repository ships. It reports what
+is wrong with a rule identifier and an address.
 
 This document states what the tool guarantees and how it is built. Read the
 vocabulary first: the rest of the document stops explaining itself after it.
@@ -43,7 +45,7 @@ it, so it is true on the day somebody checks and drifts afterwards.
 
 | Term | Meaning |
 |---|---|
-| **linter** | One of the three rule sets: `docs`, `oss`, `walkthrough`. |
+| **linter** | One of the four rule sets: `prose`, `refs`, `surface`, `oss`. |
 | **rule** | One check, with an identifier such as `OSS-102`, a severity, and a stated reason. |
 | **finding** | One reported problem: a rule, a severity, a message, and where to look. |
 | **gate** | A command that fails a build when a rule reports an error. |
@@ -51,6 +53,7 @@ it, so it is true on the day somebody checks and drifts afterwards.
 | **leak** | Material in the tree or the history that was never meant to leave the machine it was written on. |
 | **router** | `AGENTS.md`, the file an agent harness discovers by name and reads first. |
 | **help tree** | Every verb a tool carries, walked from its own help output. |
+| **citation** | A reference to a numbered section, written `SPEC.md §7.2` or with a bare `§`. |
 | **sample** | A recorded command and the output a document claims it prints. |
 | **elision** | A `…` in a sample, standing for whatever the command prints there. |
 | **epigram** | A short verbless sentence, such as "Two version numbers, one verdict, one remedy." |
@@ -61,9 +64,10 @@ it, so it is true on the day somebody checks and drifts afterwards.
 ### 3.1 The command line
 
 ```
-cs-lint docs         [--stats] [--list] [--explain]
-cs-lint oss          [--online] [--review] [--list] [--explain]
-cs-lint walkthrough  [--run] [--review] [--list] [--explain]
+cs-lint prose    [--stats] [--list] [--explain]
+cs-lint refs     [--review] [--list] [--explain]
+cs-lint surface  [--run] [--review] [--list] [--explain]
+cs-lint oss      [--online] [--review] [--list] [--explain]
 cs-lint manual
 cs-lint version
 ```
@@ -72,8 +76,10 @@ cs-lint version
 
 ### 3.2 The tuning file
 
-The tuning file is `.cs-lint.yaml` at the repository root, and it holds one
-section per linter. A repository with nothing to tune may leave it out.
+The tuning file is `.cs-lint.yaml` at the repository root. It holds two
+sections: `docs`, which carries the document set and one block per
+documentation linter, and `oss`. A repository with nothing to tune may leave
+the file out.
 
 ### 3.3 What the tool reads
 
@@ -112,7 +118,7 @@ hide the findings of the other sixty.*
 **R8.** The process **MUST** exit 1 when any rule reported an error.
 
 **R9.** The process **MUST** exit 2 when it could not run at all: an unreadable
-tuning file, an unknown flag, an unknown subcommand. *A gate needs to tell "the
+tuning file, a waiver naming no rule, an unknown flag, an unknown subcommand. *A gate needs to tell "the
 repository has a problem" from "the linter is broken", because the first is a
 finding and the second is a broken build.*
 
@@ -133,46 +139,58 @@ deleted in private.*
 **R14.** A waiver **MUST** downgrade an error to a skip, and **MUST NOT**
 remove it from the report.
 
+**R15.** A waiver naming a rule the linter it sits under does not carry **MUST**
+fail the run. *An identifier that matches nothing switches a rule off and says
+nothing about it, which is exactly what requiring a reason exists to prevent.*
+
+**R16.** A waiver naming a rule identifier from before the split **MUST** report
+the identifier that replaced it, and the section that now waives it.
+
+**R17.** A tuning file written to the schema from before the split **MUST** fail
+the run with the new location named. *Both shapes fail the strict decode
+anyway, in the parser's own words. Naming the new location is the difference
+between a message that ends the work and one that starts it.*
+
 ### 4.4 The prose linter
 
-**R15.** Code fences, tables, link definitions and raw HTML **MUST** be
+**R18.** Code fences, tables, link definitions and raw HTML **MUST** be
 excluded before any rule is applied. *They are not prose, and none of the rules
 are about them.*
 
-**R16.** The prose extraction **MUST** preserve the line count of the document,
+**R19.** The prose extraction **MUST** preserve the line count of the document,
 so an offset into the result still names the line it came from.
 
-**R17.** A document that numbers three or more requirements in bold **MUST** be
+**R20.** A document that numbers three or more requirements in bold **MUST** be
 read as a spec, and the rules written for prose **MUST NOT** be applied to it.
 *A spec states obligations in the passive and speaks about the project's own
 artifacts.*
 
-**R18.** A word inside quotation marks on its own line **MUST NOT** be reported
+**R21.** A word inside quotation marks on its own line **MUST NOT** be reported
 as used. *Naming a word is not using it.*
 
-**R19.** A glossary term **MUST** be reported when a document uses it before
+**R22.** A glossary term **MUST** be reported when a document uses it before
 glossing it, defining it in a glossary table, or linking to the page that
 defines it.
 
-**R20.** An em-dash **MUST** be reported wherever it appears. *The aside it
+**R23.** An em-dash **MUST** be reported wherever it appears. *The aside it
 introduces is a full stop, a comma, or a cut, and it is the first punctuation a
 model reaches for.*
 
-**R21.** A sentence of more than thirty words **MUST** be reported.
+**R24.** A sentence of more than thirty words **MUST** be reported.
 
-**R22.** A sentence of three to twelve words carrying no verb **MUST** be
+**R25.** A sentence of three to twelve words carrying no verb **MUST** be
 reported. *Above that length a sentence tripping the verb check is almost
 always a real sentence with a verb the list does not carry.*
 
-**R23.** A rule that follows published guidance **MUST** name the guide in its
+**R26.** A rule that follows published guidance **MUST** name the guide in its
 explanation.
 
-**R24.** A section of negatives in a README **MUST** be reported. *A reader
+**R27.** A section of negatives in a README **MUST** be reported. *A reader
 arrives to find out what the software does. Non-goals and hard limits belong in
 this document, where stating them is the job, so the rule reads only the
 README.*
 
-**R25.** A number stated immediately before a declared countable **MUST** be
+**R28.** A number stated immediately before a declared countable **MUST** be
 reported, and an empty list **MUST** disable the check. The check **MUST** read
 prose alone: a number a recorded sample, a table, inline code or raw HTML holds
 **MUST NOT** be read as a claim. *A count written into a sentence is right the
@@ -182,123 +200,95 @@ and a number quoted as text is being shown rather than asserted.*
 
 ### 4.5 The readiness linter
 
-**R26.** Every tracked file **MUST** be scanned, not a chosen subset. *Leaks
+**R29.** Every tracked file **MUST** be scanned, not a chosen subset. *Leaks
 turn up in a fixture, in a golden derived from it, in a rendered page derived
 from the golden, and in a script with a hard-coded path.*
 
-**R27.** A rule whose verdict comes from reading tracked files **MUST** report
+**R30.** A rule whose verdict comes from reading tracked files **MUST** report
 a skip where there are none to read. *A directory git cannot answer for, a
 repository with nothing committed, and one tracking only binary assets all
 leave such a rule inspecting zero files, and silence there is indistinguishable
 from a clean scan.*
 
-**R28.** A tracked file that cannot be read as text **MUST** be reported unless
+**R31.** A tracked file that cannot be read as text **MUST** be reported unless
 its extension is a declared binary asset. *A file nobody can inspect must never
 be reported as clean.*
 
-**R29.** A leak pattern **MUST** match a class rather than a name. *A committed
+**R32.** A leak pattern **MUST** match a class rather than a name. *A committed
 list of private terms publishes exactly what you consider private.*
 
-**R30.** The name of the person running the check **MUST** be taken from the
+**R33.** The name of the person running the check **MUST** be taken from the
 environment and **MUST NOT** be written into the tool or the tuning file.
 
-**R31.** A home directory naming a person **MUST** be reported unless the name
+**R34.** A home directory naming a person **MUST** be reported unless the name
 is a declared placeholder, matched as a whole name. *The allowance is matched as a whole name, so
 `/home/user` is a placeholder and a longer name beginning with those letters is
 somebody's login.*
 
-**R32.** A credential-shaped string that says of itself that it is fake
+**R35.** A credential-shaped string that says of itself that it is fake
 **MUST NOT** be reported. *A test needs a credential-shaped string, and the only safe
 one says so in itself.*
 
-**R33.** At most one leak **MUST** be reported per file. *One report is enough
+**R36.** At most one leak **MUST** be reported per file. *One report is enough
 to act on, and a generated page would otherwise print thousands.*
 
-**R34.** A path the configuration declares skipped **MUST** be skipped by the
+**R37.** A path the configuration declares skipped **MUST** be skipped by the
 history scan as well as by the tree scan. *A waiver says "this path is not
 evidence", and honouring it in one scan and not the other leaves a repository
 reporting clean on its tree and red on its history for the same declared
 reason.*
 
-**R35.** The history rules **MUST** report as warnings once the repository is
+**R38.** The history rules **MUST** report as warnings once the repository is
 declared published. *Published history cannot be rewritten, so the rule becomes
 advice.*
 
-**R36.** A rule that asks the forge about the repository **MUST NOT** run
+**R39.** A rule that asks the forge about the repository **MUST NOT** run
 unless asked.
 
-**R37.** `CONTRIBUTING.md` **MUST** state how a change reaches the project:
+**R40.** `CONTRIBUTING.md` **MUST** state how a change reaches the project:
 where a report goes, where the work starts, and how it is submitted. *A
 document that states every convention and never the process reads as published
 rather than open, and the contribution that never arrives leaves no trace to
 notice.*
 
-**R38.** A public channel for an ordinary report **MUST** be named, distinctly
+**R41.** A public channel for an ordinary report **MUST** be named, distinctly
 from any tracker the repository commits to its own tree. *A ledger in the tree
 is the maintainers' record. A stranger cannot file into it.*
 
-**R39.** The terms a contribution is accepted under, and a policy for
+**R42.** The terms a contribution is accepted under, and a policy for
 AI-assisted contributions, **MUST** each be stated. *A contributor grants a
 licence whether or not anybody says so, and a repository whose history carries
 agent trailers owes its readers the policy behind them.*
 
-**R40.** The writing rules **MUST** be cited rather than restated. *A second
+**R43.** The writing rules **MUST** be cited rather than restated. *A second
 copy drifts. Six sibling projects each restating one list produced six
 different lists, two of which stated a threshold the linter they shipped did
 not hold.*
 
-**R41.** A table `CONTRIBUTING.md` and `SPEC.md` both carry **MUST** be
+**R44.** A table `CONTRIBUTING.md` and `SPEC.md` both carry **MUST** be
 reported. *A fact lives in one document and the others link to it.*
 
-**R42.** A commit convention **MUST NOT** be checked against a number the
+**R45.** A commit convention **MUST NOT** be checked against a number the
 convention itself publishes. *A stated maximum becomes a target: where one was
 named as the rare maximum, a repository put exactly that many in 31 of 149
 commits. The check reports the shape; the document describes the condition.*
 
-### 4.6 The walkthrough linter
+**R46.** A commit body that runs past a stated word count, or past two
+paragraphs, **MUST** be reported. *A convention that asks for quality and never
+mentions length produces long messages: plain English, whole sentences and
+writing for a reader who was not there are each satisfied by writing more. The
+threshold belongs in the check rather than in `CONTRIBUTING.md`, where a stated
+number becomes the length messages get written to.*
 
-**R43.** Every claim **MUST** be compared against something that cannot lie:
-the tool's help tree, the source that reads a variable, the build file, or the
-command re-run now. *Nothing here guesses what a document ought to say.*
+### 4.6 The reference linter
 
-**R44.** The help tree **MUST** be walked rather than assumed, to a depth of
-three verbs. *A subcommand's own subcommands are where a surface goes
-undocumented.*
-
-**R45.** A verb whose help page is identical to its parent's **MUST NOT** be
-walked for children. *A tool with no per-verb help answers with the page its
-parent gave, and reading those as children multiplies the tree by itself at
-every level.*
-
-**R46.** A sample **MUST NOT** be re-run unless every command in it names a
-declared safe verb. *A checker that writes can mask the staleness another gate
-exists to catch.*
-
-**R47.** An elision in a recorded line **MUST** match whatever the command
-prints in its place, and everything either side of it **MUST** still match.
-
-**R48.** A variable read only by test code **MUST NOT** be reported as an
-undocumented setting. *A variable only the suite reads is instrumentation
-rather than a setting.*
-
-**R49.** A variable passed to a child process **MUST NOT** be read as a
-setting the tool itself reads.
-
-**R50.** The path check **MUST** read every tracked Markdown file, not only the
+**R47.** The path check **MUST** read every tracked Markdown file, not only the
 document set, and a tree it skips **MUST** be declared with a reason. The
 document set **MUST** be checked whatever a skip says. *A nested README makes
 the same claim the document set does, and a path it names that has moved is
 wrong in the same way. A skip nobody can review is a scan deleted in private.*
 
-**R51.** Where the tool carries a `manual` verb and the repository carries
-`MANUAL.md`, what the verb prints **MUST** be what the file holds, ignoring a
-trailing newline. Where the verb, the file or the binary is absent, or the verb
-does not exit zero, the rule **MUST** report a skip. The finding **MUST** name
-the first line that differs. *The printed copy is what a machine with no
-checkout reads, so a stale binary sends the wrong answer to the reader least
-able to notice, and the first differing line is where a rebuild shows its work.*
-
-**R52.** A section citation in the source **MUST** resolve, and a tree it skips
+**R48.** A section citation in the source **MUST** resolve, and a tree it skips
 **MUST** be declared with a reason. The suite **MUST** be read, and no
 `sourceSkip` **MUST** apply. A citation naming no document **MUST** be read
 against the spec, or against the only document that numbers its sections, and
@@ -308,32 +298,95 @@ its next reader as surely as one in production code, and a tree excluded because
 its settings are another program's still cites this repository's own spec. A
 rule that guesses which document was meant reports a finding nobody can act on.*
 
-**R53.** A numbered section **MUST** be recognised as a heading or as a bold
+**R49.** A numbered section **MUST** be recognised as a heading or as a bold
 lead-in. *A spec numbering its rules without adding a level to the table of
 contents is not a spec whose citations are all stale.*
 
-**R54.** A commit body that runs past a stated word count, or past two
-paragraphs, **MUST** be reported. *A convention that asks for quality and never
-mentions length produces long messages: plain English, whole sentences and
-writing for a reader who was not there are each satisfied by writing more. The
-threshold belongs in the check rather than in `CONTRIBUTING.md`, where a stated
-number becomes the length messages get written to.*
+**R50.** A rule in this linter **MUST NOT** depend on the binary the
+repository builds. *That is what lets a gate resolve every reference before it
+builds anything, and what makes this the first of the four to answer.*
+
+### 4.7 The interface linter
+
+**R51.** Every claim **MUST** be compared against something that cannot lie:
+the tool's help tree, the source that reads a variable, the build file, or the
+command re-run now. *Nothing here guesses what a document ought to say.*
+
+**R52.** The help tree **MUST** be walked rather than assumed, to a depth of
+three verbs. *A subcommand's own subcommands are where a surface goes
+undocumented.*
+
+**R53.** A verb whose help page is identical to its parent's **MUST NOT** be
+walked for children. *A tool with no per-verb help answers with the page its
+parent gave, and reading those as children multiplies the tree by itself at
+every level.*
+
+**R54.** A sample **MUST NOT** be re-run unless every command in it names a
+declared safe verb. *A checker that writes can mask the staleness another gate
+exists to catch.*
+
+**R55.** An elision in a recorded line **MUST** match whatever the command
+prints in its place, and everything either side of it **MUST** still match.
+
+**R56.** A variable read only by test code **MUST NOT** be reported as an
+undocumented setting. *A variable only the suite reads is instrumentation
+rather than a setting.*
+
+**R57.** A variable passed to a child process **MUST NOT** be read as a
+setting the tool itself reads.
+
+**R58.** Where the tool carries a `manual` verb and the repository carries
+`MANUAL.md`, what the verb prints **MUST** be what the file holds, ignoring a
+trailing newline. Where the verb, the file or the binary is absent, or the verb
+does not exit zero, the rule **MUST** report a skip. The finding **MUST** name
+the first line that differs. *The printed copy is what a machine with no
+checkout reads, so a stale binary sends the wrong answer to the reader least
+able to notice, and the first differing line is where a rebuild shows its work.*
+
+**R59.** Every rule in this linter **MUST** report a skip of its own where
+there is no binary to ask. *A project that has not wired a build dependency
+still runs the linter, and one collective failure would tell it nothing about
+which checks it lost.*
 
 ## 5. Data model
 
 ### 5.1 The tuning file
 
-One YAML document with three top-level keys, each optional.
+One YAML document with two top-level keys, each optional. `docs` carries the
+document set and one block per documentation linter. The set sits above the
+blocks because `refs` and `surface` both read it.
 
 ```yaml
 docs:
-  skipExtra: []            # directories of fixtures or generated Markdown
-  glossary: []             # terms a reader cannot infer
-  lowercaseStarters: []    # words that start a sentence in lower case
-  projectVerbs: []         # verbs the shared list does not carry
-  countable: []            # things this repository counts for itself
-  terms: {}                # pattern -> what to write instead
-  termsProse: {}           # the same, for documents that are not specs
+  documents: []            # the set refs and surface read the claims from
+  extraDocs: []            # the standalone pages the set adds
+
+  prose:
+    skipExtra: []          # directories of fixtures or generated Markdown
+    glossary: []           # terms a reader cannot infer
+    lowercaseStarters: []  # words that start a sentence in lower case
+    projectVerbs: []       # verbs the shared list does not carry
+    countable: []          # things this repository counts for itself
+    terms: {}              # pattern -> what to write instead
+    termsProse: {}         # the same, for documents that are not specs
+
+  refs:
+    placeholderOK: []      # placeholder paths a block may name on purpose
+    prereqOK: []           # build tools no document has to name
+    markdownSkip: {}       # path prefix -> why its Markdown claims nothing here
+    citationSkip: {}       # path prefix -> why a section number there is not a citation
+    agentSection: ""       # the manual heading addressed to automated callers
+    allow: {}              # rule id -> why it is waived
+
+  surface:
+    tool: ""               # the command name
+    toolPath: ""           # the binary this checkout builds
+    envPrefix: ""          # the variable prefix this tool reads
+    envInternal: {}        # variable -> why it is deliberately undocumented
+    safeVerbs: []          # verbs a sample check may re-run
+    sampleSkip: {}         # command -> why it cannot reproduce here
+    sourceSkip: {}         # path prefix -> why the source under it is not this tool's
+    allow: {}              # rule id -> why it is waived
 
 oss:
   project: ""              # the command this repository ships
@@ -348,24 +401,13 @@ oss:
   binaryOK: []             # extensions a scan may skip as known assets
   requiredTargets: []      # task-runner targets that must exist
   expectedTargets: []      # the rest of the family's vocabulary
-
-walkthrough:
-  tool: ""                 # the command name
-  toolPath: ""             # the binary this checkout builds
-  docs: []                 # the document set
-  extraDocs: []
-  envPrefix: ""            # the variable prefix this tool reads
-  envInternal: {}          # variable -> why it is deliberately undocumented
-  safeVerbs: []            # verbs a sample check may re-run
-  sampleSkip: {}           # command -> why it cannot reproduce here
-  placeholderOK: []        # placeholder paths a block may name on purpose
-  prereqOK: []             # build tools no document has to name
-  sourceSkip: {}           # path prefix -> why its settings are not this tool's
-  markdownSkip: {}         # path prefix -> why its Markdown claims nothing here
-  citationSkip: {}         # path prefix -> why a section number there is not a citation
-  agentSection: ""         # the manual heading addressed to automated callers
-  allow: {}                # rule id -> why it is waived
 ```
+
+`docs.surface.tool` and `docs.surface.sourceSkip` are read by the reference
+rules as well. Both describe the tool rather than either linter. The first says
+which name in a build file is the tool itself, and the second says which trees
+hold somebody else's code. A second copy of either would let the two halves
+disagree.
 
 ### 5.2 A finding
 
@@ -395,16 +437,23 @@ machines is a check nobody can act on.
 | `internal/config` | The tuning file and the defaults. |
 | `internal/lint` | A finding, a severity, and the repository the rules read. |
 | `internal/mdtext` | Markdown reduced to prose, and split into sentences and units. |
-| `internal/docs` | The prose rules. |
+| `internal/docset` | The repository as the documentation rules read it: the document set, the blocks in it, the source, the build files, and the binary. |
+| `internal/prose` | The writing rules. |
+| `internal/refs` | The reference rules. |
+| `internal/surface` | The interface rules. |
 | `internal/oss` | The readiness rules. |
-| `internal/walk` | The claims rules. |
 | `internal/lint/linttest` | The scratch repositories the rule tests read. |
 | the module root | `MANUAL.md`, embedded so the binary carries its own reference. |
 
-The dependency direction is one way. `cli` reads the three rule packages and the
-embedded manual. Each rule package reads `config` and `lint`, and `docs` also
-reads `mdtext`. `config` and `lint` import nothing of their own. No rule package
-imports another.
+The dependency direction is one way. `cli` reads the four rule packages and the
+embedded manual. Each rule package reads `config` and `lint`. `prose` also reads
+`mdtext`, and `refs` and `surface` both read `docset`. `config`, `lint` and
+`docset` import no rule package. No rule package imports another.
+
+`refs` and `surface` share `docset` rather than a copy each, because both read
+the same document set, the same fenced blocks and the same tracked text. Two
+copies would be two chances for the halves of one split to disagree about what
+this repository says.
 
 ### 7.2 Key types
 
@@ -412,8 +461,8 @@ imports another.
 count findings, sort them, waive one by its rule, and render them in whichever
 form the command asked for.
 
-`lint.Repo` is the repository and the cache the rules read it through. Eighty-nine
-rules over a few hundred files would otherwise read the same file many times, so
+`lint.Repo` is the repository and the cache the rules read it through. Every
+rule over a few hundred files would otherwise read the same file many times, so
 everything is read once and kept.
 
 Each rule package holds its own table, because each needs a different context to
@@ -440,7 +489,7 @@ test run and gated at a floor.
 
 ## 8. Conformance
 
-An implementation conforms when it satisfies R1 through R54, and when:
+An implementation conforms when it satisfies R1 through R59, and when:
 
 1. `cs-lint <linter> --explain` prints every rule it carries, with its reason.
 2. Every rule that reports a finding appears in that listing.

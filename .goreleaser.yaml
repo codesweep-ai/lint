@@ -106,8 +106,9 @@ release:
   header: |
     ## cs-lint {{ .Tag }}
 
-    Three linters over one repository: how its documents are written, what a
-    published repository owes a reader, and whether the documents still describe
-    the software. Every check is mechanical and quotable.
+    Four linters over one repository: how its documents are written, whether
+    everything they point at is still there, whether the interface they describe
+    is the real one, and what a published repository owes a reader. Every check
+    is mechanical and quotable.
 
     Static `CGO_ENABLED=0` binaries; verify with `checksums.txt` (+ cosign `.sig`).

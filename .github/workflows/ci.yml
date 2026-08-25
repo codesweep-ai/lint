@@ -45,9 +45,10 @@ jobs:
 
   # Its own job because it needs no matrix, so it answers in seconds and answers
   # even when the tests are failing. It runs the linters against this repository
-  # itself: the tool is its own first user.
+  # itself: the tool is its own first user. The prose and reference rules read
+  # the tree and nothing else, so they answer first.
   docs:
-    name: docs prose
+    name: docs prose and refs
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -70,8 +71,10 @@ jobs:
           go-version-file: go.mod
       - run: make oss
 
-  walkthrough:
-    name: docs walkthrough
+  # Last of the three, because every rule in it asks the binary the repository
+  # builds.
+  surface:
+    name: docs surface
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -79,7 +82,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - run: make walkthrough
+      - run: make surface
 
   # The release manifest is validated on every change, because a manifest naming
   # a file that no longer exists breaks the release build outright and schema

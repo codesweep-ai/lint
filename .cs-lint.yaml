@@ -8,30 +8,64 @@
 # every reported problem is a real one: a check that cries wolf is worse than
 # no check.
 
+# The documentation block: the set of documents the checks read, then one
+# section per documentation linter.
 docs:
-  # The domain terms a reader of this project cannot infer. Each must be
-  # introduced where a document first uses it: glossed on the spot, defined in a
-  # glossary table, or linked to the page that defines it. An empty list
-  # disables the most valuable check in the set.
-  glossary:
-    - gate
-    - waiver
-    - leak
-    - router
-    - epigram
-    - elision
-    - family
+  prose:
+    # The domain terms a reader of this project cannot infer. Each must be
+    # introduced where a document first uses it: glossed on the spot, defined
+    # in a glossary table, or linked to the page that defines it. An empty list
+    # disables the most valuable check in the set.
+    glossary:
+      - gate
+      - waiver
+      - leak
+      - router
+      - epigram
+      - elision
+      - family
 
-  # The project's own command name, which starts sentences in lower case.
-  # Without it the splitter reads "Nothing matches. cs-lint exits 1." as one
-  # six-word sentence and reports a length that is not real.
-  lowercaseStarters:
-    - cs-lint
+    # The project's own command name, which starts sentences in lower case.
+    # Without it the splitter reads "Nothing matches. cs-lint exits 1." as one
+    # six-word sentence and reports a length that is not real.
+    lowercaseStarters:
+      - cs-lint
 
-  # Verbs the shared list does not carry. Only what is this project's own
-  # belongs here; an ordinary English verb belongs in the shared list, where
-  # every project gets it.
-  projectVerbs: []
+    # Verbs the shared list does not carry. Only what is this project's own
+    # belongs here; an ordinary English verb belongs in the shared list, where
+    # every project gets it.
+    projectVerbs: []
+
+  refs:
+    # A linter necessarily contains the shapes it searches for. The rule text
+    # quotes a citation to explain what one is, and the tests build stale ones
+    # on purpose, so neither is a claim about this repository's own spec.
+    citationSkip:
+      "internal/refs/": "the reference rules quote the citations they match, and the tests build stale ones on purpose"
+
+    # ~/code/my-project is the reader's own repository, and every block that
+    # names it says so in the line above. The path is theirs to supply on
+    # purpose.
+    placeholderOK: ["my-project"]
+
+    # goreleaser is optional here: `make build` falls back to `go build`
+    # without it, and INSTALL.md says so.
+    prereqOK: ["goreleaser"]
+
+  surface:
+    tool: cs-lint
+    toolPath: bin/cs-lint
+
+    # Read-only, offline, and safe to run in a checkout on every gate. A verb
+    # that writes belongs nowhere near this list: a checker that writes can
+    # mask the staleness another gate exists to catch. Each entry is a verb
+    # path with the flags taken off, so `version` covers every sample of it.
+    safeVerbs:
+      - version
+      - prose
+      - refs
+      - oss
+      - surface
 
 oss:
   project: cs-lint
@@ -61,36 +95,9 @@ oss:
   # the evidence.
   skipPaths:
     "internal/oss/": "the readiness rules necessarily contain the patterns they search for"
-    "internal/docs/": "the prose rules necessarily contain the words they decline"
-    "internal/walk/": "the claims rules necessarily contain the shapes they match"
+    "internal/prose/": "the prose rules necessarily contain the words they decline"
+    "internal/refs/": "the reference rules necessarily contain the shapes they match"
+    "internal/surface/": "the interface rules necessarily contain the shapes they match"
 
   requiredTargets: ["build", "test", "check", "lint", "docs", "oss", "clean"]
   expectedTargets: ["help", "install", "uninstall", "fmt", "fmt-check", "vet", "deadcode"]
-
-walkthrough:
-  tool: cs-lint
-  toolPath: bin/cs-lint
-
-  # A linter necessarily contains the shapes it searches for. The rule text
-  # quotes a citation to explain what one is, and the tests build stale ones on
-  # purpose, so neither is a claim about this repository's own spec.
-  citationSkip:
-    "internal/walk/": "the claims rules quote the citations they match, and the tests build stale ones on purpose"
-
-  # Read-only, offline, and safe to run in a checkout on every gate. A verb that
-  # writes belongs nowhere near this list: a checker that writes can mask the
-  # staleness another gate exists to catch.
-  safeVerbs:
-    - version
-    - docs --list
-    - docs --explain
-    - oss --explain
-    - walkthrough --explain
-
-  # ~/code/my-project is the reader's own repository, and every block that names
-  # it says so in the line above. The path is theirs to supply on purpose.
-  placeholderOK: ["my-project"]
-
-  # goreleaser is optional here: `make build` falls back to `go build` without
-  # it, and INSTALL.md says so.
-  prereqOK: ["goreleaser"]
