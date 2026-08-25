@@ -238,53 +238,61 @@ evidence", and honouring it in one scan and not the other leaves a repository
 reporting clean on its tree and red on its history for the same declared
 reason.*
 
-**R38.** The rules that read the history for a leak **MUST** report as warnings
-once the repository is declared published. *Published history cannot be
-rewritten, so the rule becomes advice.*
+**R38.** A finding about a commit a remote already carries **MUST** report as a
+warning once the repository is declared published. *Rewriting one is a decision
+about every clone somebody else made, so the rule becomes advice.*
 
-**R39.** A rule that asks the forge about the repository **MUST NOT** run
+**R39.** A finding about a commit no remote in the clone carries **MUST** be
+reported as an error whatever the flag says. It **MUST** be reported apart from
+the same finding about commits a remote carries. Where the clone cannot say
+which is which, the flag **MUST** decide. *A commit nobody else has costs one
+amend. Reading the flag alone softened exactly that case at the moment the
+repository started mattering to strangers, and a clone that has never fetched
+cannot answer the question at all.*
+
+**R40.** A rule that asks the forge about the repository **MUST NOT** run
 unless asked.
 
-**R40.** `CONTRIBUTING.md` **MUST** state how a change reaches the project:
+**R41.** `CONTRIBUTING.md` **MUST** state how a change reaches the project:
 where a report goes, where the work starts, and how it is submitted. *A
 document that states every convention and never the process reads as published
 rather than open, and the contribution that never arrives leaves no trace to
 notice.*
 
-**R41.** A public channel for an ordinary report **MUST** be named, distinctly
+**R42.** A public channel for an ordinary report **MUST** be named, distinctly
 from any tracker the repository commits to its own tree. *A ledger in the tree
 is the maintainers' record. A stranger cannot file into it.*
 
-**R42.** The terms a contribution is accepted under, and a policy for
+**R43.** The terms a contribution is accepted under, and a policy for
 AI-assisted contributions, **MUST** each be stated. *A contributor grants a
 licence whether or not anybody says so, and a repository whose history carries
 agent trailers owes its readers the policy behind them.*
 
-**R43.** The writing rules **MUST** be cited rather than restated. *A second
+**R44.** The writing rules **MUST** be cited rather than restated. *A second
 copy drifts. Six sibling projects each restating one list produced six
 different lists, two of which stated a threshold the linter they shipped did
 not hold.*
 
-**R44.** A table `CONTRIBUTING.md` and `SPEC.md` both carry **MUST** be
+**R45.** A table `CONTRIBUTING.md` and `SPEC.md` both carry **MUST** be
 reported. *A fact lives in one document and the others link to it.*
 
-**R45.** A commit convention **MUST NOT** be checked against a number the
+**R46.** A commit convention **MUST NOT** be checked against a number the
 convention itself publishes. *A stated maximum becomes a target: where one was
 named as the rare maximum, a repository put exactly that many in 31 of 149
 commits. The check reports the shape; the document describes the condition.*
 
-**R46.** A commit body that runs past a stated word count, or past two
+**R47.** A commit body that runs past a stated word count, or past two
 paragraphs, **MUST** be reported. *A convention that asks for quality and never
 mentions length produces long messages: plain English, whole sentences and
 writing for a reader who was not there are each satisfied by writing more. The
 threshold belongs in the check rather than in `CONTRIBUTING.md`, where a stated
 number becomes the length messages get written to.*
 
-**R47.** A commit subject opening with a category label **MUST** be reported as
+**R48.** A commit subject opening with a category label **MUST** be reported as
 an error, whether or not the repository is published. The label **MUST** be
 recognised in each of its shapes: a conventional-commit type, one of the words
 projects reach for instead, and a bracketed tag. The other subject conventions
-**MUST** report as warnings. *This one spreads, because the next contributor
+**MUST NOT** be reported as an error once a remote carries the commit. *This one spreads, because the next contributor
 copies the last subject they saw, and it costs one `git commit --amend` to fix
 before the commit is pushed. Publication does not stop it spreading, so the
 error does not soften into advice at the moment the convention starts mattering
@@ -293,13 +301,13 @@ reason, which is a decision somebody can read.*
 
 ### 4.6 The reference linter
 
-**R48.** The path check **MUST** read every tracked Markdown file, not only the
+**R49.** The path check **MUST** read every tracked Markdown file, not only the
 document set, and a tree it skips **MUST** be declared with a reason. The
 document set **MUST** be checked whatever a skip says. *A nested README makes
 the same claim the document set does, and a path it names that has moved is
 wrong in the same way. A skip nobody can review is a scan deleted in private.*
 
-**R49.** A section citation in the source **MUST** resolve, and a tree it skips
+**R50.** A section citation in the source **MUST** resolve, and a tree it skips
 **MUST** be declared with a reason. The suite **MUST** be read, and no
 `sourceSkip` **MUST** apply. A citation naming no document **MUST** be read
 against the spec, or against the only document that numbers its sections, and
@@ -309,44 +317,44 @@ its next reader as surely as one in production code, and a tree excluded because
 its settings are another program's still cites this repository's own spec. A
 rule that guesses which document was meant reports a finding nobody can act on.*
 
-**R50.** A numbered section **MUST** be recognised as a heading or as a bold
+**R51.** A numbered section **MUST** be recognised as a heading or as a bold
 lead-in. *A spec numbering its rules without adding a level to the table of
 contents is not a spec whose citations are all stale.*
 
-**R51.** A rule in this linter **MUST NOT** depend on the binary the
+**R52.** A rule in this linter **MUST NOT** depend on the binary the
 repository builds. *That is what lets a gate resolve every reference before it
 builds anything, and what makes this the first of the four to answer.*
 
 ### 4.7 The interface linter
 
-**R52.** Every claim **MUST** be compared against something that cannot lie:
+**R53.** Every claim **MUST** be compared against something that cannot lie:
 the tool's help tree, the source that reads a variable, the build file, or the
 command re-run now. *Nothing here guesses what a document ought to say.*
 
-**R53.** The help tree **MUST** be walked rather than assumed, to a depth of
+**R54.** The help tree **MUST** be walked rather than assumed, to a depth of
 three verbs. *A subcommand's own subcommands are where a surface goes
 undocumented.*
 
-**R54.** A verb whose help page is identical to its parent's **MUST NOT** be
+**R55.** A verb whose help page is identical to its parent's **MUST NOT** be
 walked for children. *A tool with no per-verb help answers with the page its
 parent gave, and reading those as children multiplies the tree by itself at
 every level.*
 
-**R55.** A sample **MUST NOT** be re-run unless every command in it names a
+**R56.** A sample **MUST NOT** be re-run unless every command in it names a
 declared safe verb. *A checker that writes can mask the staleness another gate
 exists to catch.*
 
-**R56.** An elision in a recorded line **MUST** match whatever the command
+**R57.** An elision in a recorded line **MUST** match whatever the command
 prints in its place, and everything either side of it **MUST** still match.
 
-**R57.** A variable read only by test code **MUST NOT** be reported as an
+**R58.** A variable read only by test code **MUST NOT** be reported as an
 undocumented setting. *A variable only the suite reads is instrumentation
 rather than a setting.*
 
-**R58.** A variable passed to a child process **MUST NOT** be read as a
+**R59.** A variable passed to a child process **MUST NOT** be read as a
 setting the tool itself reads.
 
-**R59.** Where the tool carries a `manual` verb and the repository carries
+**R60.** Where the tool carries a `manual` verb and the repository carries
 `MANUAL.md`, what the verb prints **MUST** be what the file holds, ignoring a
 trailing newline. Where the verb, the file or the binary is absent, or the verb
 does not exit zero, the rule **MUST** report a skip. The finding **MUST** name
@@ -354,7 +362,7 @@ the first line that differs. *The printed copy is what a machine with no
 checkout reads, so a stale binary sends the wrong answer to the reader least
 able to notice, and the first differing line is where a rebuild shows its work.*
 
-**R60.** Every rule in this linter **MUST** report a skip of its own where
+**R61.** Every rule in this linter **MUST** report a skip of its own where
 there is no binary to ask. *A project that has not wired a build dependency
 still runs the linter, and one collective failure would tell it nothing about
 which checks it lost.*
@@ -500,7 +508,7 @@ test run and gated at a floor.
 
 ## 8. Conformance
 
-An implementation conforms when it satisfies R1 through R60, and when:
+An implementation conforms when it satisfies R1 through R61, and when:
 
 1. `cs-lint <linter> --explain` prints every rule it carries, with its reason.
 2. Every rule that reports a finding appears in that listing.

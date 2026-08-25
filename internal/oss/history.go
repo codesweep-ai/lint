@@ -96,6 +96,108 @@ func (l *Linter) historySeverity() lint.Severity {
 	return lint.Error
 }
 
+// readReach asks git which commits no remote in this clone carries.
+//
+// Three answers, and the middle one is the reason this is not a one-liner. A
+// repository with no remote at all has published nothing, so every commit it
+// holds is still the author's to rewrite. A repository whose remote-tracking
+// refs are there gets the real answer. A repository that has a remote but no
+// ref from it cannot say, and a check that guessed there would fail a clone
+// for the state of somebody else's fetch.
+func (l *Linter) readReach() {
+	if l.askedGit {
+		return
+	}
+	l.askedGit = true
+	remotes, err := l.repo.Git("remote")
+	if err != nil {
+		return
+	}
+	if strings.TrimSpace(remotes) == "" {
+		l.canTell = true
+		out, err := l.repo.Git("rev-list", "HEAD")
+		if err != nil {
+			l.canTell = false
+			return
+		}
+		l.loose = strings.Fields(out)
+		return
+	}
+	refs, err := l.repo.Git("for-each-ref", "--format=%(refname)", "refs/remotes")
+	if err != nil || strings.TrimSpace(refs) == "" {
+		return
+	}
+	out, err := l.repo.Git("rev-list", "HEAD", "--not", "--remotes")
+	if err != nil {
+		return
+	}
+	l.canTell = true
+	l.loose = strings.Fields(out)
+}
+
+// rewritable reports whether the commit given is still the author's to change:
+// no remote in this clone carries it, so an amend or a rebase reaches it and
+// nobody else has a copy to be broken.
+//
+// A short identifier is matched as the prefix it is, because the rules that
+// report on commits shorten one for display before they ever compare it.
+func (l *Linter) rewritable(sha string) bool {
+	l.readReach()
+	if !l.canTell {
+		return false
+	}
+	for _, full := range l.loose {
+		if strings.HasPrefix(full, sha) {
+			return true
+		}
+	}
+	return false
+}
+
+// byReach splits commits into the ones still open to an amend and the ones a
+// remote already carries.
+func (l *Linter) byReach(shas []string) (loose, sent []string) {
+	for _, sha := range shas {
+		if l.rewritable(sha) {
+			loose = append(loose, sha)
+		} else {
+			sent = append(sent, sha)
+		}
+	}
+	return loose, sent
+}
+
+// pastFindings reports one group of commits as up to two findings.
+//
+// A commit no remote carries costs an amend to fix, so it fails the run
+// wherever the repository is in its life. One a remote already carries costs a
+// rewrite of every clone somebody else made, and what that is worth is the
+// caller's to say: a leak reads differently from a subject over sixty
+// characters. The two halves are reported apart because the reader acts on
+// them differently, and only one of them can be acted on for free.
+func (l *Linter) pastFindings(rule string, carried lint.Severity, shas []string,
+	render func(n int, reach string) string) []lint.Problem {
+	loose, sent := l.byReach(shas)
+	var out []lint.Problem
+	if len(loose) > 0 {
+		out = append(out, lint.Problem{
+			Rule:     rule,
+			Severity: lint.Error,
+			Message:  render(len(loose), "no remote carries them yet, so an amend or a rebase reaches them"),
+			Where:    loose[0],
+		})
+	}
+	if len(sent) > 0 {
+		out = append(out, lint.Problem{
+			Rule:     rule,
+			Severity: carried,
+			Message:  render(len(sent), "a remote already carries them"),
+			Where:    sent[0],
+		})
+	}
+	return out
+}
+
 // historyProbes are the high-signal half of the leak patterns, in the syntax
 // `git log -G` speaks. A candidate commit is re-read with the confirming
 // pattern, because that syntax cannot say "any name except the placeholder".
@@ -174,13 +276,9 @@ var historyRules = []rule{{
 		if len(hits) == 0 {
 			return nil
 		}
-		return []lint.Problem{{
-			Rule:     "OSS-701",
-			Severity: l.historySeverity(),
-			Message: fmt.Sprintf("%d commit message(s) link an agent session; the newest is %s",
-				len(hits), hits[0]),
-			Where: hits[0],
-		}}
+		return l.pastFindings("OSS-701", l.historySeverity(), hits, func(n int, reach string) string {
+			return fmt.Sprintf("%d commit message(s) link an agent session, and %s", n, reach)
+		})
 	},
 }, {
 	id: "OSS-702", severity: lint.Error,
@@ -191,7 +289,7 @@ var historyRules = []rule{{
 		"contributor copies the last subject they saw, and it is free to fix before the " +
 		"commit is pushed. Publishing does not stop it spreading, so it stays an error " +
 		"after publication, where a history that already carries labels waives it with the " +
-		"reason. The rest print and pass.",
+		"reason. The other three print and pass once a remote has the commit.",
 	check: func(l *Linter) []lint.Problem {
 		log, err := l.repo.Git("log", "--format=%h %s")
 		if err != nil {
@@ -232,10 +330,11 @@ var historyRules = []rule{{
 			{"are over 60 characters", tooLong},
 			{"end with a full stop", trailing},
 		} {
-			if len(g.hits) > 0 {
-				out = append(out, lint.Warnf("OSS-702", "%d of %d commit subjects %s",
-					len(g.hits), len(lines), g.label).At(g.hits[0]))
-			}
+			out = append(out, l.pastFindings("OSS-702", lint.Warn, g.hits,
+				func(n int, reach string) string {
+					return fmt.Sprintf("%d of %d commit subjects %s, and %s",
+						n, len(lines), g.label, reach)
+				})...)
 		}
 		if len(prefixed) > 0 {
 			// An unpushed commit is amended in a second, so this fails the run.
@@ -395,19 +494,16 @@ var historyRules = []rule{{
 				}
 			}
 			if len(hits) > 0 {
-				out = append(out, lint.Problem{
-					Rule:     "OSS-708",
-					Severity: l.historySeverity(),
-					Message: fmt.Sprintf("%s is in %d commit(s), the newest %s; rewriting is "+
-						"possible now and not after publication", p.what, len(hits), hits[0]),
-					Where: hits[0],
-				})
+				out = append(out, l.pastFindings("OSS-708", l.historySeverity(), hits,
+					func(n int, reach string) string {
+						return fmt.Sprintf("%s is in %d commit(s), and %s", p.what, n, reach)
+					})...)
 			}
 		}
 		return out
 	},
 }, {
-	id: "OSS-709", severity: lint.Warn,
+	id: "OSS-709", severity: lint.Error,
 	title: "A commit body carries no bullet that did not earn its place",
 	why: "A stated maximum becomes a target. Where a convention named three as the rare " +
 		"maximum, one repository put exactly three in 31 of 149 commits, tying two for " +
@@ -445,21 +541,17 @@ var historyRules = []rule{{
 		if total == 0 {
 			return []lint.Problem{lint.Skipf("OSS-709", "no commit body uses bullets")}
 		}
-		var out []lint.Problem
-		if len(padded) > 0 {
-			out = append(out, lint.Warnf("OSS-709",
-				"%d of %d bulleted bodies run past %d points; read them for the one added to "+
-					"fill the shape", len(padded), total, maxBodyBullets).At(padded[0]))
-		}
-		if len(echoed) > 0 {
-			out = append(out, lint.Warnf("OSS-709",
-				"%d of %d bulleted bodies open a line that restates the subject",
-				len(echoed), total).At(echoed[0]))
-		}
-		return out
+		out := l.pastFindings("OSS-709", lint.Warn, padded, func(n int, reach string) string {
+			return fmt.Sprintf("%d of %d bulleted bodies run past %d points, and %s; read them "+
+				"for the one added to fill the shape", n, total, maxBodyBullets, reach)
+		})
+		return append(out, l.pastFindings("OSS-709", lint.Warn, echoed, func(n int, reach string) string {
+			return fmt.Sprintf("%d of %d bulleted bodies open a line that restates the subject, "+
+				"and %s", n, total, reach)
+		})...)
 	},
 }, {
-	id: "OSS-710", severity: lint.Warn,
+	id: "OSS-710", severity: lint.Error,
 	title: "No commit body narrates the work instead of describing the change",
 	why: "A reader of the history was not there. \"As requested\", \"after investigating\" " +
 		"and \"this commit\" describe the session rather than the software, and an agent " +
@@ -492,11 +584,12 @@ var historyRules = []rule{{
 		if len(quote) > 70 {
 			quote = quote[:70]
 		}
-		return []lint.Problem{lint.Warnf("OSS-710",
-			"%d commit body(s) narrate the work: %q", len(hits), quote).At(hits[0])}
+		return l.pastFindings("OSS-710", lint.Warn, hits, func(n int, reach string) string {
+			return fmt.Sprintf("%d commit body(s) narrate the work, and %s: %q", n, reach, quote)
+		})
 	},
 }, {
-	id: "OSS-711", severity: lint.Warn,
+	id: "OSS-711", severity: lint.Error,
 	title: "No commit body has grown into a report of the session",
 	why: "A convention that asks for quality and never mentions length produces long " +
 		"messages, because plain English, whole sentences and writing for somebody who was " +
@@ -511,7 +604,6 @@ var historyRules = []rule{{
 		}
 		var long, sprawling []string
 		var total, worst int
-		var worstSHA string
 		for rec := range strings.SplitSeq(log, "\x1e") {
 			sha, body, found := strings.Cut(strings.TrimLeft(rec, "\n"), "\x00")
 			if !found {
@@ -528,26 +620,20 @@ var historyRules = []rule{{
 			if paras > maxBodyParagraphs {
 				sprawling = append(sprawling, shortSHA(sha))
 			}
-			if words > worst {
-				worst, worstSHA = words, shortSHA(sha)
-			}
+			worst = max(worst, words)
 		}
 		if total == 0 {
 			return []lint.Problem{lint.Skipf("OSS-711", "no commit carries a body")}
 		}
-		var out []lint.Problem
-		if len(long) > 0 {
-			out = append(out, lint.Warnf("OSS-711",
-				"%d of %d bodies run past %d words; the longest runs to %d",
-				len(long), total, maxBodyWords, worst).At(worstSHA))
-		}
-		if len(sprawling) > 0 {
-			out = append(out, lint.Warnf("OSS-711",
-				"%d of %d bodies run to more than %d paragraphs; read them for the one that "+
-					"reports the session rather than the change",
-				len(sprawling), total, maxBodyParagraphs).At(sprawling[0]))
-		}
-		return out
+		out := l.pastFindings("OSS-711", lint.Warn, long, func(n int, reach string) string {
+			return fmt.Sprintf("%d of %d bodies run past %d words, and %s; the longest in the "+
+				"history runs to %d", n, total, maxBodyWords, reach, worst)
+		})
+		return append(out, l.pastFindings("OSS-711", lint.Warn, sprawling, func(n int, reach string) string {
+			return fmt.Sprintf("%d of %d bodies run to more than %d paragraphs, and %s; read "+
+				"them for the one that reports the session rather than the change",
+				n, total, maxBodyParagraphs, reach)
+		})...)
 	},
 }}
 

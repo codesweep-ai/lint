@@ -828,6 +828,35 @@ func history(t *testing.T, messages ...string) *lint.Repo {
 	return repo
 }
 
+// publish gives the repository a remote and pushes HEAD to it, so its commits
+// read as carried by a remote rather than as the author's to amend.
+func publish(t *testing.T, repo *lint.Repo) {
+	t.Helper()
+	bare := t.TempDir()
+	for _, c := range [][]string{
+		{"git", "init", "-q", "--bare", bare},
+		{"git", "remote", "add", "origin", bare},
+		{"git", "push", "-q", "origin", "HEAD:refs/heads/main"},
+	} {
+		cmd := exec.Command(c[0], c[1:]...)
+		cmd.Dir = repo.Root
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("%v: %v\n%s", c, err, out)
+		}
+	}
+}
+
+// addBareRemote names a remote this clone has never fetched from, which is the
+// state in which git cannot say what is published and what is not.
+func addBareRemote(t *testing.T, repo *lint.Repo) {
+	t.Helper()
+	cmd := exec.Command("git", "remote", "add", "origin", t.TempDir())
+	cmd.Dir = repo.Root
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("remote add: %v\n%s", err, out)
+	}
+}
+
 func runHistory(t *testing.T, id string, repo *lint.Repo) []lint.Problem {
 	t.Helper()
 	return runHistoryAs(t, id, repo, config.Default().OSS)
@@ -994,6 +1023,118 @@ func TestACategoryLabelIsWaivable(t *testing.T) {
 			if p.Severity == lint.Error {
 				t.Errorf("a waived rule still failed the run: %v", p)
 			}
+		}
+	}
+}
+
+// A commit no remote carries is still the author's to amend, so a finding about
+// it fails the run whatever the published flag says. The flag is about a
+// history other people already have.
+func TestAnUnpushedCommitIsAlwaysAnError(t *testing.T) {
+	cfg := config.Default().OSS
+	cfg.Published = true
+	repo := history(t, "Add a token cache\n\nClaude-Session: https://example.com/s/1\n")
+	got := runHistoryAs(t, "OSS-701", repo, cfg)
+	if len(got) != 1 {
+		t.Fatalf("got %v, want one finding", got)
+	}
+	if got[0].Severity != lint.Error {
+		t.Errorf("an unpushed commit reported %s, want error", got[0].Severity)
+	}
+	if !strings.Contains(got[0].Message, "no remote carries them") {
+		t.Errorf("the finding does not say why it can still be fixed: %q", got[0].Message)
+	}
+}
+
+// Once a remote carries the commit, rewriting it is a decision about other
+// people's clones, and the published flag is what answers that.
+func TestAPushedCommitFollowsThePublishedFlag(t *testing.T) {
+	repo := history(t, "Add a token cache\n\nClaude-Session: https://example.com/s/1\n")
+	publish(t, repo)
+
+	cfg := config.Default().OSS
+	got := runHistoryAs(t, "OSS-701", repo, cfg)
+	if len(got) != 1 || got[0].Severity != lint.Error {
+		t.Fatalf("got %v, want one error while unpublished", got)
+	}
+	if !strings.Contains(got[0].Message, "a remote already carries them") {
+		t.Errorf("the finding does not say the commit is out: %q", got[0].Message)
+	}
+
+	cfg.Published = true
+	got = runHistoryAs(t, "OSS-701", repo, cfg)
+	if len(got) != 1 || got[0].Severity != lint.Warn {
+		t.Errorf("got %v, want one warning once published", got)
+	}
+}
+
+// A clone with a remote it has never fetched from cannot say what is out, and a
+// check that guessed there would fail a repository for the state of somebody
+// else's fetch.
+func TestAnUnfetchedCloneFallsBackToTheFlag(t *testing.T) {
+	repo := history(t, "Add a token cache\n\nClaude-Session: https://example.com/s/1\n")
+	addBareRemote(t, repo)
+	cfg := config.Default().OSS
+	cfg.Published = true
+	got := runHistoryAs(t, "OSS-701", repo, cfg)
+	if len(got) != 1 || got[0].Severity != lint.Warn {
+		t.Errorf("got %v, want the published flag to decide", got)
+	}
+}
+
+// A history holding both reports both, because the reader acts on them
+// differently and only one of them can be acted on for free.
+func TestBothReachesAreReportedApart(t *testing.T) {
+	repo := history(t, "Add a token cache\n\nClaude-Session: https://example.com/s/1\n")
+	publish(t, repo)
+	extra := exec.Command("git", "commit", "--allow-empty", "-q", "-m",
+		"Add a second cache\n\nClaude-Session: https://example.com/s/2\n")
+	extra.Dir = repo.Root
+	if out, err := extra.CombinedOutput(); err != nil {
+		t.Fatalf("commit: %v\n%s", err, out)
+	}
+	cfg := config.Default().OSS
+	cfg.Published = true
+	got := runHistoryAs(t, "OSS-701", repo, cfg)
+	if len(got) != 2 {
+		t.Fatalf("got %v, want the two reaches reported apart", got)
+	}
+	if got[0].Severity != lint.Error || got[1].Severity != lint.Warn {
+		t.Errorf("got %s then %s, want error then warning", got[0].Severity, got[1].Severity)
+	}
+}
+
+// The message-quality rules are the same argument: a subject or a body is free
+// to fix while no remote has it.
+func TestMessageQualityFailsOnAnUnpushedCommit(t *testing.T) {
+	long := "Add the cache\n\n" + strings.Repeat("word ", 200) + "\n"
+	got := runHistory(t, "OSS-711", history(t, long))
+	if len(got) == 0 || got[0].Severity != lint.Error {
+		t.Errorf("got %v, want an error on an unpushed body", got)
+	}
+	// Once a remote has it, a body over the ceiling is advice again, whether or
+	// not the repository is published. Only the leak and session rules read the
+	// flag for what is already out.
+	repo := history(t, long)
+	publish(t, repo)
+	got = runHistory(t, "OSS-711", repo)
+	if len(got) == 0 || got[0].Severity != lint.Warn {
+		t.Errorf("got %v, want advice once the body is out", got)
+	}
+}
+
+// A subject convention other than the category label costs a rewrite once a
+// remote has the commit, and stays advice there however the flag reads.
+func TestASubjectConventionIsAdviceOncePushed(t *testing.T) {
+	repo := history(t, "Add a token cache to the resolver and then some more words here")
+	publish(t, repo)
+	got := runHistory(t, "OSS-702", repo)
+	if len(got) == 0 {
+		t.Fatal("an over-long subject passed")
+	}
+	for _, p := range got {
+		if p.Severity != lint.Warn {
+			t.Errorf("a pushed subject reported %s, want warning: %v", p.Severity, p)
 		}
 	}
 }

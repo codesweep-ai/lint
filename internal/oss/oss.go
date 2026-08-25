@@ -61,6 +61,10 @@ type Linter struct {
 	unreadable []string          // tracked, not a known asset, not decodable
 	leaks      []lint.Problem
 	scanned    bool
+
+	loose    []string // full SHAs no remote in this clone carries
+	askedGit bool     // whether the question above has been put to git
+	canTell  bool     // whether git could answer it
 }
 
 // New returns a readiness linter for the repository given.

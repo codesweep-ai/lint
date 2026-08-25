@@ -263,7 +263,7 @@ would let the two halves disagree.
 |---|---|---|
 | `project` | inferred | The command this repository ships. |
 | `githubRepo` | from the remote | The `owner/name` this repository is published as. |
-| `published` | `false` | Once true, the two rules that scan past commits for a leak report as warnings. |
+| `published` | `false` | Once true, a finding about a commit a remote already carries reports as a warning. |
 | `docSet` | the six documents | The documents this repository carries. |
 | `extraDocs` | empty | The standalone pages it adds, which the router must also name. |
 | `homeAllow` | `user`, `you`, `name`, `runner` | Home names that are a placeholder rather than a person. |
@@ -375,6 +375,15 @@ is not.
 A tracked file that is neither valid text nor a declared binary asset. Remove
 it, or add its extension to `binaryOK` if it is a legitimate asset. A file
 nobody can inspect must never be reported as clean.
+
+**A finding about the history, reported twice at two severities**
+
+The rules that read past commits split their findings by reach. A commit no
+remote in this clone carries is still yours to amend, so that half is an error
+whatever `published` says. A commit a remote already has costs a rewrite of
+every clone somebody else made, so that half follows `published`. A clone that
+has a remote but has never fetched from it cannot tell the two apart, and there
+`published` decides the whole finding.
 
 **`OSS-702 ... commit subjects open with a category label`**
 
