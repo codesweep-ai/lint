@@ -48,7 +48,7 @@ var (
 	// The Writing section delegates rather than restating the checks. A
 	// second copy of a rule set drifts, and a document that states a
 	// threshold the linter does not hold is worse than one that states none.
-	citesTheLinter = regexp.MustCompile(`cs-lint docs --explain`)
+	citesTheLinter = regexp.MustCompile(`cs-lint prose --explain`)
 
 	// A table's header row, used to spot the same table in two documents.
 	tableHeader = regexp.MustCompile(`^\|(.+)\|\s*$`)
@@ -537,7 +537,7 @@ var documentRules = []rule{{
 		var out []lint.Problem
 		if !citesTheLinter.MatchString(section) {
 			out = append(out, lint.Warnf("OSS-217",
-				"the Writing section never points at `cs-lint docs --explain`, "+
+				"the Writing section never points at `cs-lint prose --explain`, "+
 					"so a reader cannot tell which rules are enforced"))
 		}
 		if n := strings.Count(section, "\n"); n > maxWritingLines {

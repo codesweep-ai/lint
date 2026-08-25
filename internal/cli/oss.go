@@ -62,10 +62,3 @@ func listOSS(w io.Writer, l *oss.Linter, tracked []string) {
 	fmt.Fprintf(w, "tracked:  %d file(s)\n", len(tracked))
 	fmt.Fprintf(w, "rules:    %d\n", len(oss.Explain()))
 }
-
-func orNone(s string) string {
-	if s == "" {
-		return "(none)"
-	}
-	return s
-}

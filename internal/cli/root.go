@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/codesweep-ai/lint/internal/config"
+	"github.com/codesweep-ai/lint/internal/docset"
 	"github.com/codesweep-ai/lint/internal/lint"
 )
 
@@ -57,10 +58,13 @@ func Execute() int {
 	root := &cobra.Command{
 		Use:   "cs-lint",
 		Short: "Check that a repository, its documents and its claims hold together",
-		Long: "cs-lint carries three linters over one repository.\n\n" +
-			"  docs         how the documents are written\n" +
-			"  oss          what a published repository owes a reader\n" +
-			"  walkthrough  whether the documents still describe the software\n\n" +
+		Long: "cs-lint carries four linters over one repository.\n\n" +
+			"  prose    how the documents are written\n" +
+			"  refs     whether every reference in them and to them resolves\n" +
+			"  surface  whether the documented interface is the real one\n" +
+			"  oss      what a published repository owes a reader\n\n" +
+			"The first two read the tree and nothing else, so a gate runs them first.\n" +
+			"`surface` asks the binary the repository builds, so it runs after the build.\n\n" +
 			"Every check is mechanical and quotable. What needs judgement is left to\n" +
 			"review, because a linter that guesses produces noise, and noise gets ignored.",
 		SilenceUsage:  true,
@@ -72,9 +76,11 @@ func Execute() int {
 		"report what was skipped, and why")
 
 	root.AddCommand(
-		docsCmd(opt),
+		proseCmd(opt),
+		refsCmd(opt),
+		surfaceCmd(opt),
 		ossCmd(opt),
-		walkthroughCmd(opt),
+		walkthroughCmd(),
 		manualCmd(),
 		versionCmd(),
 	)
@@ -110,7 +116,20 @@ func load(opt *options) (*config.Config, *lint.Repo, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	if err := checkAllow(cfg); err != nil {
+		return nil, nil, err
+	}
 	return cfg, lint.NewRepo(opt.root), nil
+}
+
+// documents reads the repository once for the linters that share a document
+// set, so a run of all three costs one pass over the tree.
+func documents(opt *options) (*config.Config, *docset.Set, error) {
+	cfg, repo, err := load(opt)
+	if err != nil {
+		return nil, nil, err
+	}
+	return cfg, docset.New(cfg.Docs, repo), nil
 }
 
 // report prints what a run found and sets the exit code.
@@ -147,4 +166,11 @@ func explainRules(w io.Writer, rules []lint.RuleDoc) {
 		fmt.Fprintf(w, "%s  %-8s %s\n", r.ID, r.Severity, r.Title)
 		fmt.Fprintf(w, "%s%s\n\n", indent, wrap(r.Why, 74, indent))
 	}
+}
+
+func orNone(s string) string {
+	if s == "" {
+		return "(none)"
+	}
+	return s
 }

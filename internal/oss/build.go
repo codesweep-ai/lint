@@ -37,7 +37,7 @@ var (
 // The vendored Python script is still recognised, because a repository that
 // has not moved to the binary yet is gated all the same.
 var (
-	proseGate     = []string{"cs-lint docs", "lint-docs"}
+	proseGate     = []string{"cs-lint prose", "lint-docs"}
 	readinessGate = []string{"cs-lint oss", "lint-oss"}
 )
 

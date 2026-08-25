@@ -8,39 +8,41 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/codesweep-ai/lint/internal/docs"
 	"github.com/codesweep-ai/lint/internal/lint"
+	"github.com/codesweep-ai/lint/internal/prose"
 )
 
-func docsCmd(opt *options) *cobra.Command {
+func proseCmd(opt *options) *cobra.Command {
 	var stats bool
 	cmd := &cobra.Command{
-		Use:   "docs",
-		Short: "Check the prose against the writing rules",
+		Use:   "prose",
+		Short: "Check how the documents are written",
 		Long: "Check the prose in this repository's Markdown against the writing rules.\n\n" +
 			"The rules exist because docs drift into a style that reads as terse and\n" +
 			"knowing rather than clear: verbless epigrams, sentences carrying two or\n" +
 			"three em-dashes, and terms used pages before anything defines them.\n\n" +
 			"Code fences, tables and link definitions are excluded throughout: they are\n" +
-			"not prose, and none of the rules are about them.",
+			"not prose, and none of the rules are about them.\n\n" +
+			"It asks for no binary and no build, so it is the first gate a repository\n" +
+			"can run and the cheapest one to keep green.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, repo, err := load(opt)
 			if err != nil {
 				return err
 			}
-			l, err := docs.New(cfg.Docs)
+			l, err := prose.New(cfg.Docs.Prose)
 			if err != nil {
 				return err
 			}
 			out := cmd.OutOrStdout()
 
 			if opt.explain {
-				explainDocs(out)
+				explainProse(out)
 				return nil
 			}
 
-			files, err := l.Docs(repo.Root)
+			files, err := l.Files(repo.Root)
 			if err != nil {
 				return err
 			}
@@ -51,7 +53,7 @@ func docsCmd(opt *options) *cobra.Command {
 				return nil
 			}
 			if len(files) == 0 {
-				fmt.Fprintln(out, "docs: no Markdown found")
+				fmt.Fprintln(out, "prose: no Markdown found")
 				return nil
 			}
 
@@ -63,7 +65,7 @@ func docsCmd(opt *options) *cobra.Command {
 				}
 				problems = append(problems, found...)
 			}
-			report(out, "docs", problems, opt.verbose)
+			report(out, "prose", problems, opt.verbose)
 
 			if stats {
 				printStats(out, l, repo.Root, files)
@@ -77,18 +79,18 @@ func docsCmd(opt *options) *cobra.Command {
 	return cmd
 }
 
-// explainDocs prints every rule, what it wants, and the guidance behind it.
+// explainProse prints every rule, what it wants, and the guidance behind it.
 //
 // A writer arguing with a rule deserves to know whether it is this house's
 // preference or an industry convention with a page behind it, so the rules
 // that follow published guidance name it.
-func explainDocs(w io.Writer) {
-	for _, r := range docs.Rules {
+func explainProse(w io.Writer) {
+	for _, r := range prose.Rules {
 		source := "this house, from review of these documents"
 		switch r.Source {
-		case docs.Both:
+		case prose.Both:
 			source = "the Google and Red Hat documentation style guides"
-		case docs.Google, docs.RedHat:
+		case prose.Google, prose.RedHat:
 			source = "the " + string(r.Source) + " documentation style guide"
 		}
 		fmt.Fprintf(w, "%s  %s\n", r.ID, r.Title)
@@ -117,7 +119,7 @@ func wrap(s string, width int, indent string) string {
 	return strings.Join(out, "\n"+indent)
 }
 
-func printStats(w io.Writer, l *docs.Linter, root string, files []string) {
+func printStats(w io.Writer, l *prose.Linter, root string, files []string) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', tabwriter.AlignRight)
 	fmt.Fprintln(tw, "\nfile\twords\tavg sentence\tem-dash/100w\tyou\t")
 	for _, f := range files {

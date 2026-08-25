@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 )
@@ -22,15 +23,35 @@ import (
 // Name is the file the knobs are read from, at the repository root.
 const Name = ".cs-lint.yaml"
 
-// Config is the whole file: one section per linter.
+// Config is the whole file: the documentation block, and the readiness one.
 type Config struct {
-	Docs        Docs        `yaml:"docs"`
-	OSS         OSS         `yaml:"oss"`
-	Walkthrough Walkthrough `yaml:"walkthrough"`
+	Docs Docs `yaml:"docs"`
+	OSS  OSS  `yaml:"oss"`
 }
 
-// Docs tunes the prose linter.
+// Docs is the documentation block: the set of documents the checks read, and
+// one section per documentation linter.
+//
+// The set sits above the sections because rules on both sides of it read the
+// same documents. A second copy drifts, and the two halves would then disagree
+// about which pages this repository publishes.
 type Docs struct {
+	// Documents is the set the claims and the references are read from, in
+	// the order a reader meets it.
+	Documents []string `yaml:"documents"`
+	// ExtraDocs are the standalone pages the set adds.
+	ExtraDocs []string `yaml:"extraDocs"`
+	// Prose tunes `cs-lint prose`: how the documents are written.
+	Prose Prose `yaml:"prose"`
+	// Refs tunes `cs-lint refs`: whether every reference resolves.
+	Refs Refs `yaml:"refs"`
+	// Surface tunes `cs-lint surface`: whether the documented interface is
+	// the real one.
+	Surface Surface `yaml:"surface"`
+}
+
+// Prose tunes the prose linter.
+type Prose struct {
 	// SkipExtra names directories holding fixtures, corpora or generated
 	// Markdown, and root-level files that are data rather than documentation.
 	SkipExtra []string `yaml:"skipExtra"`
@@ -54,6 +75,56 @@ type Docs struct {
 	Terms map[string]string `yaml:"terms"`
 	// TermsProse adds declined words that apply to prose but not to a spec.
 	TermsProse map[string]string `yaml:"termsProse"`
+}
+
+// Refs tunes the reference linter.
+type Refs struct {
+	// PlaceholderOK are placeholder paths a block may name on purpose.
+	PlaceholderOK []string `yaml:"placeholderOK"`
+	// PrereqOK are tools the build needs that no document has to name.
+	PrereqOK []string `yaml:"prereqOK"`
+	// MarkdownSkip maps a path prefix to why the Markdown under it makes no
+	// claim about this repository: payload shipped elsewhere, a corpus, a
+	// template materialized into a consumer repo, or a page another tool
+	// generates. The document set is always checked, whatever this says.
+	MarkdownSkip map[string]string `yaml:"markdownSkip"`
+	// CitationSkip maps a path prefix to why a section number written there is
+	// not a citation: a rule that quotes the shape it searches for, or a test
+	// fixture built to be stale on purpose.
+	CitationSkip map[string]string `yaml:"citationSkip"`
+	// AgentSection is the heading in the manual addressed to automated callers.
+	AgentSection string `yaml:"agentSection"`
+	// Allow waives a rule for this repository, with the reason.
+	Allow map[string]string `yaml:"allow"`
+}
+
+// Surface tunes the interface linter.
+type Surface struct {
+	// Tool is the command name, guessed from the build file when empty. The
+	// reference rules read it too, to know which name in a build file is the
+	// tool itself rather than a program it needs installed first.
+	Tool string `yaml:"tool"`
+	// ToolPath points at the binary this checkout builds, so a check reads
+	// this tree rather than whatever the developer installed last.
+	ToolPath string `yaml:"toolPath"`
+	// EnvPrefix is the variable prefix this tool reads, guessed from the tool
+	// name when empty.
+	EnvPrefix string `yaml:"envPrefix"`
+	// EnvInternal maps a variable to why it is deliberately undocumented.
+	EnvInternal map[string]string `yaml:"envInternal"`
+	// SafeVerbs are the verbs a sample check may re-run. Every one has to be
+	// read-only, offline and safe in a checkout, because they run on every
+	// gate. A verb that writes belongs nowhere near this list: a checker that
+	// writes can mask the staleness another gate exists to catch.
+	SafeVerbs []string `yaml:"safeVerbs"`
+	// SampleSkip maps a sample's first command to why it cannot re-run here.
+	SampleSkip map[string]string `yaml:"sampleSkip"`
+	// SourceSkip maps a path prefix to why the source under it is not this
+	// tool's. The ledger citation rule reads it too, because a tree excluded
+	// here is excluded from every scan of what this repository's own code says.
+	SourceSkip map[string]string `yaml:"sourceSkip"`
+	// Allow waives a rule for this repository, with the reason.
+	Allow map[string]string `yaml:"allow"`
 }
 
 // OSS tunes the readiness linter.
@@ -96,56 +167,28 @@ type OSS struct {
 	ExpectedTargets []string `yaml:"expectedTargets"`
 }
 
-// Walkthrough tunes the claims linter.
-type Walkthrough struct {
-	// Tool is the command name, guessed from the build file when empty.
-	Tool string `yaml:"tool"`
-	// ToolPath points at the binary this checkout builds, so a check reads
-	// this tree rather than whatever the developer installed last.
-	ToolPath string `yaml:"toolPath"`
-	// Docs is the document set the claims are read from.
-	Docs []string `yaml:"docs"`
-	// ExtraDocs are the standalone pages the set adds.
-	ExtraDocs []string `yaml:"extraDocs"`
-	// EnvPrefix is the variable prefix this tool reads, guessed from the tool
-	// name when empty.
-	EnvPrefix string `yaml:"envPrefix"`
-	// EnvInternal maps a variable to why it is deliberately undocumented.
-	EnvInternal map[string]string `yaml:"envInternal"`
-	// SafeVerbs are the verbs a sample check may re-run. Every one has to be
-	// read-only, offline and safe in a checkout, because they run on every
-	// gate. A verb that writes belongs nowhere near this list: a checker that
-	// writes can mask the staleness another gate exists to catch.
-	SafeVerbs []string `yaml:"safeVerbs"`
-	// SampleSkip maps a sample's first command to why it cannot re-run here.
-	SampleSkip map[string]string `yaml:"sampleSkip"`
-	// PlaceholderOK are placeholder paths a block may name on purpose.
-	PlaceholderOK []string `yaml:"placeholderOK"`
-	// PrereqOK are tools the build needs that no document has to name.
-	PrereqOK []string `yaml:"prereqOK"`
-	// SourceSkip maps a path prefix to why its settings are not this tool's.
-	SourceSkip map[string]string `yaml:"sourceSkip"`
-	// MarkdownSkip maps a path prefix to why the Markdown under it makes no
-	// claim about this repository: payload shipped elsewhere, a corpus, a
-	// template materialized into a consumer repo, or a page another tool
-	// generates. The document set is always checked, whatever this says.
-	MarkdownSkip map[string]string `yaml:"markdownSkip"`
-	// CitationSkip maps a path prefix to why a section number written there is
-	// not a citation: a rule that quotes the shape it searches for, or a test
-	// fixture built to be stale on purpose.
-	CitationSkip map[string]string `yaml:"citationSkip"`
-	// AgentSection is the heading in the manual addressed to automated callers.
-	AgentSection string `yaml:"agentSection"`
-	// Allow waives a rule for this repository, with the reason.
-	Allow map[string]string `yaml:"allow"`
-}
-
 // Default returns the configuration a project gets before it tunes anything.
 func Default() *Config {
 	return &Config{
 		Docs: Docs{
-			Terms:      map[string]string{},
-			TermsProse: map[string]string{},
+			Documents: []string{"README.md", "INSTALL.md", "MANUAL.md", "SPEC.md",
+				"CONTRIBUTING.md"},
+			Prose: Prose{
+				Terms:      map[string]string{},
+				TermsProse: map[string]string{},
+			},
+			Refs: Refs{
+				MarkdownSkip: map[string]string{},
+				CitationSkip: map[string]string{},
+				AgentSection: "Notes for agents",
+				Allow:        map[string]string{},
+			},
+			Surface: Surface{
+				EnvInternal: map[string]string{},
+				SampleSkip:  map[string]string{},
+				SourceSkip:  map[string]string{},
+				Allow:       map[string]string{},
+			},
 		},
 		OSS: OSS{
 			DocSet: []string{"README.md", "INSTALL.md", "MANUAL.md", "SPEC.md",
@@ -162,17 +205,6 @@ func Default() *Config {
 			ExpectedTargets: []string{"help", "install", "uninstall", "fmt",
 				"fmt-check", "vet", "lint"},
 		},
-		Walkthrough: Walkthrough{
-			Docs: []string{"README.md", "INSTALL.md", "MANUAL.md", "SPEC.md",
-				"CONTRIBUTING.md"},
-			EnvInternal:  map[string]string{},
-			SampleSkip:   map[string]string{},
-			SourceSkip:   map[string]string{},
-			MarkdownSkip: map[string]string{},
-			CitationSkip: map[string]string{},
-			AgentSection: "Notes for agents",
-			Allow:        map[string]string{},
-		},
 	}
 }
 
@@ -187,6 +219,9 @@ func Load(root string) (*Config, error) {
 		}
 		return nil, err
 	}
+	if err := checkShape(b); err != nil {
+		return nil, err
+	}
 	// KnownFields makes a misspelled key an error rather than a knob that
 	// silently does nothing, which is the failure this format is most prone to.
 	dec := yaml.NewDecoder(bytes.NewReader(b))
@@ -195,4 +230,40 @@ func Load(root string) (*Config, error) {
 		return nil, fmt.Errorf("%s: %w", Name, err)
 	}
 	return cfg, nil
+}
+
+// movedProse are the keys that sat directly under `docs:` while that section
+// tuned the prose linter alone.
+var movedProse = []string{"skipExtra", "glossary", "lowercaseStarters",
+	"projectVerbs", "countable", "terms", "termsProse"}
+
+// checkShape reports a file written to the schema from before the split.
+//
+// Both shapes are rejected by the strict decode that follows, and both would
+// be rejected with the parser's own words: a field the reader has to map back
+// onto a section they have not read about yet. Naming the new location is the
+// difference between a message that ends the work and one that starts it.
+func checkShape(b []byte) error {
+	var file map[string]yaml.Node
+	// A file that does not parse at all is the decoder's to report.
+	if yaml.Unmarshal(b, &file) != nil {
+		return nil
+	}
+	if _, ok := file["walkthrough"]; ok {
+		return fmt.Errorf("%s: `walkthrough:` was split in two. The checks that read "+
+			"the binary are now `docs.surface`, and the ones that resolve a reference "+
+			"are `docs.refs`", Name)
+	}
+	docs, ok := file["docs"]
+	if !ok || docs.Kind != yaml.MappingNode {
+		return nil
+	}
+	for i := 0; i+1 < len(docs.Content); i += 2 {
+		if key := docs.Content[i].Value; slices.Contains(movedProse, key) {
+			return fmt.Errorf("%s: `docs.%s` is now `docs.prose.%s`. The `docs:` section "+
+				"holds the document set and one block per documentation linter: `prose`, "+
+				"`refs` and `surface`", Name, key, key)
+		}
+	}
+	return nil
 }

@@ -143,9 +143,9 @@ var cloneRules = []rule{{
 		if err != nil {
 			return []lint.Problem{lint.Errorf("OSS-504", "%s does not parse: %v", config.Name, err)}
 		}
-		if len(cfg.Docs.Glossary) == 0 {
+		if len(cfg.Docs.Prose.Glossary) == 0 {
 			return []lint.Problem{lint.Errorf("OSS-504",
-				"docs.glossary in %s is empty, which disables the most valuable prose check",
+				"docs.prose.glossary in %s is empty, which disables the most valuable prose check",
 				config.Name)}
 		}
 		return nil

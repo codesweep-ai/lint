@@ -1,4 +1,4 @@
-package docs
+package prose
 
 // Source names the style guide a rule takes its lead from.
 //

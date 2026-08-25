@@ -1,4 +1,4 @@
-package docs
+package prose
 
 import (
 	"os"
@@ -29,7 +29,7 @@ func writeNamed(t *testing.T, name, body string) string {
 
 // check runs the prose linter over one document and returns the rule ids it
 // reported.
-func check(t *testing.T, cfg config.Docs, body string) []string {
+func check(t *testing.T, cfg config.Prose, body string) []string {
 	t.Helper()
 	root := write(t, body)
 	l, err := New(cfg)
@@ -54,53 +54,53 @@ func has(ids []string, want string) bool {
 func TestRulesFire(t *testing.T) {
 	for _, tc := range []struct {
 		name, rule, body string
-		cfg              config.Docs
+		cfg              config.Prose
 	}{
 		{
-			name: "verbless epigram", rule: "DOC-102",
+			name: "verbless epigram", rule: "PROSE-102",
 			body: "Two version numbers, one verdict, one remedy.\n",
 		},
 		{
-			name: "sentence length", rule: "DOC-103",
+			name: "sentence length", rule: "PROSE-103",
 			body: "This sentence runs on and on and on for far too many words indeed, " +
 				"carrying more than one idea at a time, which is exactly the sort of " +
 				"thing the length rule exists to catch when it happens.\n",
 		},
 		{
-			name: "em-dash budget", rule: "DOC-104",
+			name: "em-dash budget", rule: "PROSE-104",
 			body: "A paragraph — with two — em-dashes in it.\n",
 		},
 		{
-			name: "unshown script", rule: "DOC-105",
+			name: "unshown script", rule: "PROSE-105",
 			body: "Run ./build.sh to build the thing.\n",
 		},
 		{
-			name: "throat clearing", rule: "DOC-106",
+			name: "throat clearing", rule: "PROSE-106",
 			body: "It is worth stating plainly that the gate runs.\n",
 		},
 		{
-			name: "echoes", rule: "DOC-107",
+			name: "echoes", rule: "PROSE-107",
 			body: "The cassette is a cassette because the cassette says cassette.\n",
 		},
 		{
-			name: "declined term", rule: "DOC-108",
+			name: "declined term", rule: "PROSE-108",
 			body: "You should utilize the tool.\n",
 		},
 		{
-			name: "repeated word", rule: "DOC-109",
+			name: "repeated word", rule: "PROSE-109",
 			body: "The the word is written twice.\n",
 		},
 		{
-			name: "ly hyphen", rule: "DOC-110",
+			name: "ly hyphen", rule: "PROSE-110",
 			body: "An interactively-authenticated session starts.\n",
 		},
 		{
-			name: "conflict marker", rule: "DOC-111",
+			name: "conflict marker", rule: "PROSE-111",
 			body: "<<<<<<< HEAD\nsomething\n",
 		},
 		{
-			name: "undefined term", rule: "DOC-101",
-			cfg:  config.Docs{Glossary: []string{"cassette"}},
+			name: "undefined term", rule: "PROSE-101",
+			cfg:  config.Prose{Glossary: []string{"cassette"}},
 			body: "The cassette carries what was recorded.\n",
 		},
 	} {
@@ -115,7 +115,7 @@ func TestRulesFire(t *testing.T) {
 func TestCleanProseIsClean(t *testing.T) {
 	body := "# A heading\n\nThe gate runs before you push. It reports what is wrong, " +
 		"and it exits non-zero so the build stops.\n"
-	if ids := check(t, config.Docs{}, body); len(ids) != 0 {
+	if ids := check(t, config.Prose{}, body); len(ids) != 0 {
 		t.Errorf("clean prose reported %v", ids)
 	}
 }
@@ -124,7 +124,7 @@ func TestCodeFencesAreNotProse(t *testing.T) {
 	// A fence carries none of the rules: it is not prose.
 	body := "```\nThe the word is written twice and this sentence is deliberately far " +
 		"too long to pass the length rule that applies to ordinary prose here.\n```\n"
-	if ids := check(t, config.Docs{}, body); len(ids) != 0 {
+	if ids := check(t, config.Prose{}, body); len(ids) != 0 {
 		t.Errorf("a code fence reported %v", ids)
 	}
 }
@@ -134,11 +134,11 @@ func TestASpecSkipsTheProseOnlyRules(t *testing.T) {
 	// own artifacts, so the first-person rule would fire constantly there.
 	spec := "**R1.** The tool **MUST** run.\n\n**R2.** It **MUST** exit.\n\n" +
 		"**R3.** We keep our own record.\n"
-	if ids := check(t, config.Docs{}, spec); has(ids, "DOC-108") {
+	if ids := check(t, config.Prose{}, spec); has(ids, "PROSE-108") {
 		t.Errorf("a prose-only rule fired on a spec: %v", ids)
 	}
 	prose := "We keep our own record of it.\n"
-	if ids := check(t, config.Docs{}, prose); !has(ids, "DOC-108") {
+	if ids := check(t, config.Prose{}, prose); !has(ids, "PROSE-108") {
 		t.Errorf("the first-person rule did not fire on prose: %v", ids)
 	}
 }
@@ -146,21 +146,21 @@ func TestASpecSkipsTheProseOnlyRules(t *testing.T) {
 func TestAMentionIsNotAUse(t *testing.T) {
 	// Naming a word is not using it.
 	body := "The house declines \"simply\" in its own prose.\n"
-	if ids := check(t, config.Docs{}, body); has(ids, "DOC-108") {
+	if ids := check(t, config.Prose{}, body); has(ids, "PROSE-108") {
 		t.Errorf("a quoted mention was read as a use: %v", ids)
 	}
 }
 
 func TestLyAdjectivesKeepTheirHyphen(t *testing.T) {
 	// An adjective ending in -ly does take a hyphen in a compound.
-	if ids := check(t, config.Docs{}, "A costly-looking result.\n"); has(ids, "DOC-110") {
+	if ids := check(t, config.Prose{}, "A costly-looking result.\n"); has(ids, "PROSE-110") {
 		t.Errorf("an -ly adjective was reported: %v", ids)
 	}
 }
 
 func TestFindingsCarryALineNumber(t *testing.T) {
 	root := write(t, "# Heading\n\nfine here\n\nThe the word.\n")
-	l, err := New(config.Docs{})
+	l, err := New(config.Prose{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +189,7 @@ func TestEveryRuleIsExplained(t *testing.T) {
 			t.Errorf("%s has no title or no reason", r.ID)
 		}
 	}
-	ids := check(t, config.Docs{Glossary: []string{"cassette"}},
+	ids := check(t, config.Prose{Glossary: []string{"cassette"}},
 		"The cassette is here. The the word. An interactively-authenticated run.\n")
 	for _, id := range ids {
 		if !seen[id] {
@@ -209,11 +209,11 @@ func TestDocsFindsTheRootAndDocsTree(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	l, err := New(config.Docs{})
+	l, err := New(config.Prose{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	found, err := l.Docs(root)
+	found, err := l.Files(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +230,7 @@ func TestDocsFindsTheRootAndDocsTree(t *testing.T) {
 
 func TestStatsMeasureTheDocument(t *testing.T) {
 	root := write(t, "You run it. You read what it says.\n")
-	l, err := New(config.Docs{})
+	l, err := New(config.Prose{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +246,7 @@ func TestStatsMeasureTheDocument(t *testing.T) {
 func TestABrokenTermPatternIsReported(t *testing.T) {
 	// A configuration that does not compile has to fail loudly rather than
 	// silently dropping the rule it was meant to add.
-	_, err := New(config.Docs{Terms: map[string]string{"(": "unclosed"}})
+	_, err := New(config.Prose{Terms: map[string]string{"(": "unclosed"}})
 	if err == nil {
 		t.Error("a malformed declined term compiled")
 	}
@@ -255,7 +255,7 @@ func TestABrokenTermPatternIsReported(t *testing.T) {
 func TestSeverityIsAlwaysAnError(t *testing.T) {
 	// Prose findings are quotable and mechanical, so none of them is advice.
 	root := write(t, "The the word.\n")
-	l, _ := New(config.Docs{})
+	l, _ := New(config.Prose{})
 	found, _ := l.Check(root, "DOC.md")
 	for _, p := range found {
 		if p.Severity != lint.Error {
@@ -284,11 +284,11 @@ func TestSkipExtraLeavesATreeOut(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(nested, "corpus.md"), []byte("x\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	l, err := New(config.Docs{SkipExtra: []string{"fixtures"}})
+	l, err := New(config.Prose{SkipExtra: []string{"fixtures"}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	found, err := l.Docs(root)
+	found, err := l.Files(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,35 +303,35 @@ func TestProjectVerbsSilenceARealVerb(t *testing.T) {
 	// A verb the shared list does not carry trips the epigram check until the
 	// project adds it.
 	body := "The tool frobnicates it.\n"
-	if ids := check(t, config.Docs{}, body); !has(ids, "DOC-102") {
+	if ids := check(t, config.Prose{}, body); !has(ids, "PROSE-102") {
 		t.Fatalf("the epigram check did not fire: %v", ids)
 	}
-	if ids := check(t, config.Docs{ProjectVerbs: []string{"frobnicates?"}}, body); has(ids, "DOC-102") {
+	if ids := check(t, config.Prose{ProjectVerbs: []string{"frobnicates?"}}, body); has(ids, "PROSE-102") {
 		t.Errorf("a configured verb still tripped the check: %v", ids)
 	}
 }
 
 func TestProjectTermsAreAdded(t *testing.T) {
 	body := "Use the frobnicator here.\n"
-	if ids := check(t, config.Docs{}, body); has(ids, "DOC-108") {
+	if ids := check(t, config.Prose{}, body); has(ids, "PROSE-108") {
 		t.Fatalf("an undeclared term was reported: %v", ids)
 	}
-	cfg := config.Docs{Terms: map[string]string{"frobnicator": "Use 'widget'."}}
-	if ids := check(t, cfg, body); !has(ids, "DOC-108") {
+	cfg := config.Prose{Terms: map[string]string{"frobnicator": "Use 'widget'."}}
+	if ids := check(t, cfg, body); !has(ids, "PROSE-108") {
 		t.Errorf("a configured term was not reported: %v", ids)
 	}
 }
 
 func TestGlossaryTermIntroducedOnTheSpotPasses(t *testing.T) {
-	cfg := config.Docs{Glossary: []string{"cassette"}}
+	cfg := config.Prose{Glossary: []string{"cassette"}}
 	// A gloss in the same paragraph introduces it.
 	body := "A cassette is the recording a session leaves behind.\n"
-	if ids := check(t, cfg, body); has(ids, "DOC-101") {
+	if ids := check(t, cfg, body); has(ids, "PROSE-101") {
 		t.Errorf("a term glossed on the spot was reported: %v", ids)
 	}
 	// So does a glossary table, wherever it sits.
 	table := "Text using cassette early.\n\n| **cassette** | the recording |\n|---|---|\n"
-	if ids := check(t, cfg, table); has(ids, "DOC-101") {
+	if ids := check(t, cfg, table); has(ids, "PROSE-101") {
 		t.Errorf("a term defined in a table was reported: %v", ids)
 	}
 }
@@ -339,9 +339,9 @@ func TestGlossaryTermIntroducedOnTheSpotPasses(t *testing.T) {
 func TestAMentionIsNotAFirstUse(t *testing.T) {
 	// Single-asterisk emphasis is the use/mention convention: a sentence about
 	// the word *cassette* is not a sentence that uses cassettes.
-	cfg := config.Docs{Glossary: []string{"cassette"}}
+	cfg := config.Prose{Glossary: []string{"cassette"}}
 	body := "The word *cassette* comes up later on.\n"
-	if ids := check(t, cfg, body); has(ids, "DOC-101") {
+	if ids := check(t, cfg, body); has(ids, "PROSE-101") {
 		t.Errorf("a mention was read as a first use: %v", ids)
 	}
 }
@@ -349,8 +349,8 @@ func TestAMentionIsNotAFirstUse(t *testing.T) {
 func TestAnOrdinaryVerbNeedsNoProjectEntry(t *testing.T) {
 	// An ordinary English verb belongs in the shared list, where every project
 	// gets it, rather than in one project's projectVerbs.
-	ids := check(t, config.Docs{}, "# D\n\nNeither alone suffices.\n")
-	if has(ids, "DOC-102") {
+	ids := check(t, config.Prose{}, "# D\n\nNeither alone suffices.\n")
+	if has(ids, "PROSE-102") {
 		t.Errorf("a real sentence was read as an epigram: %v", ids)
 	}
 }
@@ -366,21 +366,21 @@ func TestAnInflectedVerbIsStillAVerb(t *testing.T) {
 		"Nothing diagnoses the failure.",
 		"The host diagnosed it from the reply.",
 	} {
-		if ids := check(t, config.Docs{}, "# D\n\n"+s+"\n"); has(ids, "DOC-102") {
+		if ids := check(t, config.Prose{}, "# D\n\n"+s+"\n"); has(ids, "PROSE-102") {
 			t.Errorf("a real sentence was read as an epigram: %q: %v", s, ids)
 		}
 	}
 }
 
 func TestABulletIsNotASentence(t *testing.T) {
-	if ids := check(t, config.Docs{}, "- one verdict, one remedy\n"); has(ids, "DOC-102") {
+	if ids := check(t, config.Prose{}, "- one verdict, one remedy\n"); has(ids, "PROSE-102") {
 		t.Errorf("a bullet was read as a sentence: %v", ids)
 	}
 }
 
 func TestAShownScriptPasses(t *testing.T) {
 	body := "```bash\n# build.sh\necho hi\n```\n\nRun ./build.sh to build it.\n"
-	if ids := check(t, config.Docs{}, body); has(ids, "DOC-105") {
+	if ids := check(t, config.Prose{}, body); has(ids, "PROSE-105") {
 		t.Errorf("a script the document showed was reported: %v", ids)
 	}
 }
@@ -388,10 +388,10 @@ func TestAShownScriptPasses(t *testing.T) {
 func TestEmDashIsBannedNotBudgeted(t *testing.T) {
 	// One is one too many: the aside it introduces is a full stop, a comma, or
 	// a cut.
-	if ids := check(t, config.Docs{}, "A sentence — with one aside.\n"); !has(ids, "DOC-104") {
+	if ids := check(t, config.Prose{}, "A sentence — with one aside.\n"); !has(ids, "PROSE-104") {
 		t.Errorf("a single em-dash passed: %v", ids)
 	}
-	if ids := check(t, config.Docs{}, "A sentence with no aside.\n"); has(ids, "DOC-104") {
+	if ids := check(t, config.Prose{}, "A sentence with no aside.\n"); has(ids, "PROSE-104") {
 		t.Errorf("clean prose reported an em-dash: %v", ids)
 	}
 }
@@ -403,7 +403,7 @@ func TestReadmeNegativesAreReported(t *testing.T) {
 		"## Limitations", "### Caveats", "## Known issues",
 	} {
 		root := write(t, "# Thing\n\n"+heading+"\n\nSome prose here.\n")
-		l, err := New(config.Docs{})
+		l, err := New(config.Prose{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -422,7 +422,7 @@ func TestReadmeNegativesAreReported(t *testing.T) {
 		for _, p := range got {
 			ids = append(ids, p.Rule)
 		}
-		if !has(ids, "DOC-112") {
+		if !has(ids, "PROSE-112") {
 			t.Errorf("%q passed in a README: %v", heading, ids)
 		}
 	}
@@ -432,7 +432,7 @@ func TestASpecMayStateItsNonGoals(t *testing.T) {
 	// Non-goals and hard limits are what a spec exists to state, so the rule
 	// reads only the README.
 	root := writeNamed(t, "SPEC.md", "# Spec\n\n## Non-goals\n\nIt does not do that.\n")
-	l, err := New(config.Docs{})
+	l, err := New(config.Prose{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,26 +441,26 @@ func TestASpecMayStateItsNonGoals(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, p := range found {
-		if p.Rule == "DOC-112" {
+		if p.Rule == "PROSE-112" {
 			t.Errorf("a spec's non-goals were reported: %v", p)
 		}
 	}
 }
 
 func TestAnAssertedCountIsReported(t *testing.T) {
-	cfg := config.Docs{Countable: []string{"fixtures?", "goldens?"}}
+	cfg := config.Prose{Countable: []string{"fixtures?", "goldens?"}}
 	ids := check(t, cfg, "The suite carries 73 fixtures, and every one has a golden.\n")
-	if !has(ids, "DOC-113") {
-		t.Errorf("got %v, want DOC-113", ids)
+	if !has(ids, "PROSE-113") {
+		t.Errorf("got %v, want PROSE-113", ids)
 	}
 }
 
 func TestACountInASampleIsNotAClaim(t *testing.T) {
 	// A number a command printed is what the sample check holds, not what this
 	// sentence asserts.
-	cfg := config.Docs{Countable: []string{"fixtures?"}}
+	cfg := config.Prose{Countable: []string{"fixtures?"}}
 	ids := check(t, cfg, "Run it:\n\n```\nchecked 73 fixtures\n```\n")
-	if has(ids, "DOC-113") {
+	if has(ids, "PROSE-113") {
 		t.Errorf("a recorded sample was read as a claim: %v", ids)
 	}
 }
@@ -468,30 +468,30 @@ func TestACountInASampleIsNotAClaim(t *testing.T) {
 func TestANumberedHeadingIsNotACount(t *testing.T) {
 	// "### 9.1 cassette.yaml" is a section number beside the noun the section
 	// is about, and reading the 1 out of it is the rule crying wolf.
-	cfg := config.Docs{Countable: []string{"cassettes?"}}
+	cfg := config.Prose{Countable: []string{"cassettes?"}}
 	ids := check(t, cfg, "# D\n\n### 9.1 cassette.yaml\n\nIt holds the versions.\n")
-	if has(ids, "DOC-113") {
+	if has(ids, "PROSE-113") {
 		t.Errorf("a numbered heading was read as a count: %v", ids)
 	}
 }
 
 func TestACountInsideALongerNumberIsNotACount(t *testing.T) {
-	cfg := config.Docs{Countable: []string{"cassettes?"}}
+	cfg := config.Prose{Countable: []string{"cassettes?"}}
 	ids := check(t, cfg, "Version 9.1 cassettes changed shape.\n")
-	if has(ids, "DOC-113") {
+	if has(ids, "PROSE-113") {
 		t.Errorf("a number continuing another was read as a count: %v", ids)
 	}
 }
 
 func TestAnEmptyCountableListDisablesTheCheck(t *testing.T) {
-	ids := check(t, config.Docs{}, "The suite carries 73 fixtures.\n")
-	if has(ids, "DOC-113") {
+	ids := check(t, config.Prose{}, "The suite carries 73 fixtures.\n")
+	if has(ids, "PROSE-113") {
 		t.Errorf("the check ran with nothing configured: %v", ids)
 	}
 }
 
 func TestABadCountableListIsAnError(t *testing.T) {
-	if _, err := New(config.Docs{Countable: []string{"fixture("}}); err == nil {
+	if _, err := New(config.Prose{Countable: []string{"fixture("}}); err == nil {
 		t.Error("an invalid pattern was accepted")
 	}
 }
@@ -511,7 +511,7 @@ func TestTheMachineRegisterIsReported(t *testing.T) {
 		{"important to note", "It is important to note that it exits 1.\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if ids := check(t, config.Docs{}, tc.body); !has(ids, "DOC-108") {
+			if ids := check(t, config.Prose{}, tc.body); !has(ids, "PROSE-108") {
 				t.Errorf("%q passed: %v", tc.body, ids)
 			}
 		})
@@ -529,7 +529,7 @@ func TestTheMachineRegisterDoesNotCryWolf(t *testing.T) {
 		{"landscape as terrain", "The tool reads the landscape file it was given.\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if ids := check(t, config.Docs{}, tc.body); has(ids, "DOC-108") {
+			if ids := check(t, config.Prose{}, tc.body); has(ids, "PROSE-108") {
 				t.Errorf("%q was reported: %v", tc.body, ids)
 			}
 		})

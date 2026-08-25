@@ -734,7 +734,7 @@ func contribWith() string {
 		"By opening a pull request you agree that your contribution ships under the\n" +
 		"Apache 2.0 licence this project is released under.\n\n" +
 		"## Commits\n\nRun `make check` first. Keep the Co-Authored-By trailer.\n\n" +
-		"## Writing\n\nRead `cs-lint docs --explain` for the enforced list.\n\n" +
+		"## Writing\n\nRead `cs-lint prose --explain` for the enforced list.\n\n" +
 		"## AI-assisted contributions\n\nDisclose it, and own what you submit.\n"
 }
 
@@ -745,7 +745,7 @@ func TestContributingStatesHowAChangeGetsIn(t *testing.T) {
 	}
 	// A document that states every convention and never the process.
 	silent := map[string]string{"CONTRIBUTING.md": "# Contributing\n\n## Commits\n\n" +
-		"Keep one idea per commit.\n\n## Writing\n\nSee `cs-lint docs --explain`.\n"}
+		"Keep one idea per commit.\n\n## Writing\n\nSee `cs-lint prose --explain`.\n"}
 	if got := run(t, "OSS-213", config.OSS{}, silent); len(got) == 0 {
 		t.Error("a document that never says how a change is submitted passed")
 	}

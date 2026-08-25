@@ -1,4 +1,4 @@
-// Package docs checks the prose in a repository's Markdown against the writing
+// Package prose checks the prose in a repository's Markdown against the writing
 // rules.
 //
 // Every check here is mechanical and quotable. Anything that needs judgement is
@@ -9,7 +9,7 @@
 // with one knows whether it is this house's preference or an industry
 // convention. The rest came out of repeated review of what confuses readers of
 // these documents.
-package docs
+package prose
 
 import (
 	"fmt"
@@ -54,45 +54,45 @@ type Rule struct {
 
 // Rules is every rule the prose linter carries, in reporting order.
 var Rules = []Rule{
-	{"DOC-101", "A glossary term is introduced where a document first uses it",
+	{"PROSE-101", "A glossary term is introduced where a document first uses it",
 		"A reader should never meet a word the docs have not explained. " +
 			"Introducing it means glossing it in the same sentence, defining it in a " +
 			"glossary table, or linking to the page that defines it.", Google},
-	{"DOC-102", "Every sentence has a subject and a verb",
+	{"PROSE-102", "Every sentence has a subject and a verb",
 		"\"Two version numbers, one verdict, one remedy\" reads as knowing rather " +
 			"than clear. Say what the thing is.", House},
-	{"DOC-103", "A sentence carries one idea and stays under thirty words",
+	{"PROSE-103", "A sentence carries one idea and stays under thirty words",
 		"Past thirty words a sentence is holding more than one idea, and the reader " +
 			"has to take it apart before they can act on it.", RedHat},
-	{"DOC-104", "No em-dash",
+	{"PROSE-104", "No em-dash",
 		"The aside an em-dash introduces is a full stop, a comma, or a cut. It is also " +
 			"the first punctuation a model reaches for, so a page full of them reads as " +
 			"unedited whoever wrote it.", Both},
-	{"DOC-105", "A command runs only a script the document showed",
+	{"PROSE-105", "A command runs only a script the document showed",
 		"A reader should never meet a file they were not given. If a step invokes a " +
 			"script, show the script first.", House},
-	{"DOC-106", "The writing does not comment on itself",
+	{"PROSE-106", "The writing does not comment on itself",
 		"\"It is worth stating plainly\", \"put simply\", \"the point is\": delete the " +
 			"frame and keep the sentence.", RedHat},
-	{"DOC-107", "A sentence does not circle its own subject",
+	{"PROSE-107", "A sentence does not circle its own subject",
 		"One content word three times in a sentence is a sentence saying the same " +
 			"thing twice and landing nowhere.", House},
-	{"DOC-108", "The words this house has decided against",
+	{"PROSE-108", "The words this house has decided against",
 		"Plain English, preferred spellings, inclusive language, product names, " +
 			"Latin abbreviations, time-bound words, typography, and a colour naming a " +
 			"control a reader has to find.", Both},
-	{"DOC-109", "No word is written twice",
+	{"PROSE-109", "No word is written twice",
 		"\"the the\" is read as one word by the eye that wrote it.", RedHat},
-	{"DOC-110", "An -ly adverb takes no hyphen",
+	{"PROSE-110", "An -ly adverb takes no hyphen",
 		"It already modifies what follows it, so \"interactively-authenticated\" is a " +
 			"hyphen doing nothing.", Both},
-	{"DOC-111", "No merge conflict marker survives in the text",
+	{"PROSE-111", "No merge conflict marker survives in the text",
 		"A merge left half-resolved, committed, and read by nobody since.", RedHat},
-	{"DOC-112", "The README does not carry a section of negatives",
+	{"PROSE-112", "The README does not carry a section of negatives",
 		"A reader arrives at a README to find out what the software does. A section " +
 			"listing what it will not do answers a question nobody asked yet, and it " +
 			"belongs in the spec, where non-goals and hard limits are the point.", House},
-	{"DOC-113", "Prose does not assert a number the repository counts itself",
+	{"PROSE-113", "Prose does not assert a number the repository counts itself",
 		"A count written into a sentence is right on the day it is written and wrong " +
 			"by the next commit, and nothing fails when it drifts. Name the thing that " +
 			"reports the number instead. Reads the countable list, and an empty one " +
@@ -101,7 +101,7 @@ var Rules = []Rule{
 
 // Linter checks a repository's prose.
 type Linter struct {
-	cfg      config.Docs
+	cfg      config.Prose
 	splitter *mdtext.Splitter
 	verbs    *regexp.Regexp
 	counted  *regexp.Regexp
@@ -129,7 +129,7 @@ var skipDefault = []string{"node_modules", "vendor", "dist", "bin", "target",
 	"build", ".git", "third_party", "testdata", "CHANGELOG.md"}
 
 // New returns a prose linter tuned by the configuration given.
-func New(cfg config.Docs) (*Linter, error) {
+func New(cfg config.Prose) (*Linter, error) {
 	// The list is written across lines to stay readable. Go's regexp has no
 	// verbose flag, so the layout is removed rather than declared.
 	verbs := strings.Join(strings.Fields(sharedVerbs), "")
@@ -189,10 +189,10 @@ func compileTerms(shared []Term, extra map[string]string) ([]compiledTerm, error
 	return out, nil
 }
 
-// Docs returns every Markdown file the linter checks: the repository root, and
+// Files returns every Markdown file the linter checks: the repository root, and
 // docs/ or doc/ if either exists. A project that keeps prose somewhere else
 // adds it through skipExtra in reverse, by naming what to leave out.
-func (l *Linter) Docs(root string) ([]string, error) {
+func (l *Linter) Files(root string) ([]string, error) {
 	skip := map[string]bool{}
 	for _, s := range append(skipDefault, l.cfg.SkipExtra...) {
 		skip[s] = true
@@ -279,13 +279,13 @@ func (l *Linter) Check(root, rel string) ([]lint.Problem, error) {
 	out = append(out, l.repeatedWords(text, rel)...)
 	out = append(out, l.lyHyphens(text, rel)...)
 	for _, m := range conflictMarker.FindAllStringIndex(raw, -1) {
-		out = append(out, at(lint.Errorf("DOC-111",
+		out = append(out, at(lint.Errorf("PROSE-111",
 			"a merge conflict marker is still in the text"), raw, m[0]).
 			Quoting(strings.TrimSpace(raw[m[0]:m[1]])))
 	}
 	if rel == "README.md" {
 		for _, m := range negativeHeading.FindAllStringIndex(raw, -1) {
-			out = append(out, lint.Errorf("DOC-112",
+			out = append(out, lint.Errorf("PROSE-112",
 				"a README section of negatives; non-goals and hard limits belong in the spec").
 				At(fmt.Sprintf("%s:%d", rel, lint.Line(raw, m[0]))).
 				Quoting(strings.TrimSpace(raw[m[0]:m[1]])))
@@ -332,7 +332,7 @@ func (l *Linter) paragraphRules(text, rel string) []lint.Problem {
 		for _, u := range mdtext.Units(para) {
 			one := mdtext.Flatten(u)
 			if n := strings.Count(one, "—"); n > maxEmDashesPerParagraph {
-				out = append(out, lint.Errorf("DOC-104",
+				out = append(out, lint.Errorf("PROSE-104",
 					"%d em-dash(es); use a full stop, a comma, or cut the aside", n).
 					At(where).Quoting(one))
 			}
@@ -364,11 +364,11 @@ func (l *Linter) sentenceRules(s, where string) []lint.Problem {
 	}
 	var out []lint.Problem
 	if len(words) > maxSentenceWords {
-		out = append(out, lint.Errorf("DOC-103", "%d-word sentence (max %d)",
+		out = append(out, lint.Errorf("PROSE-103", "%d-word sentence (max %d)",
 			len(words), maxSentenceWords).At(where).Quoting(s))
 	}
 	if len(words) >= 3 && len(words) <= maxEpigramWords && !l.verbs.MatchString(s) {
-		out = append(out, lint.Errorf("DOC-102",
+		out = append(out, lint.Errorf("PROSE-102",
 			"no verb: an epigram, not a sentence").At(where).Quoting(s))
 	}
 	return out
@@ -390,7 +390,7 @@ func (l *Linter) declinedTerms(text, kind, rel string) []lint.Problem {
 			if t.source != House {
 				msg += fmt.Sprintf(" [%s]", t.source)
 			}
-			out = append(out, lint.Errorf("DOC-108", "%s", msg).
+			out = append(out, lint.Errorf("PROSE-108", "%s", msg).
 				At(fmt.Sprintf("%s:%d", rel, lint.Line(text, m[0]))).
 				Quoting(mdtext.Context(text, m[0])))
 		}
@@ -414,7 +414,7 @@ func (l *Linter) repeatedWords(text, rel string) []lint.Problem {
 		case "that", "had", "is", "code":
 			continue
 		}
-		out = append(out, lint.Errorf("DOC-109", "%q is written twice", first).
+		out = append(out, lint.Errorf("PROSE-109", "%q is written twice", first).
 			At(fmt.Sprintf("%s:%d", rel, lint.Line(text, m[0]))).
 			Quoting(mdtext.Context(text, m[0])))
 	}
@@ -437,7 +437,7 @@ func (l *Linter) lyHyphens(text, rel string) []lint.Problem {
 		if lyAdjectives[adverb] {
 			continue
 		}
-		out = append(out, lint.Errorf("DOC-110",
+		out = append(out, lint.Errorf("PROSE-110",
 			"%q takes no hyphen: an -ly adverb already modifies what follows it",
 			text[m[0]:m[1]]).
 			At(fmt.Sprintf("%s:%d", rel, lint.Line(text, m[0]))).
@@ -461,7 +461,7 @@ func (l *Linter) throatClearing(text, rel string) []lint.Problem {
 			if mdtext.Quoted(text, pos) {
 				continue // naming a phrase is not using it
 			}
-			out = append(out, lint.Errorf("DOC-106",
+			out = append(out, lint.Errorf("PROSE-106",
 				"%q comments on the writing; delete the frame", phrase).
 				At(fmt.Sprintf("%s:%d", rel, lint.Line(text, pos))).
 				Quoting(mdtext.Context(text, pos)))
@@ -501,7 +501,7 @@ func (l *Linter) echoes(text, rel string) []lint.Problem {
 				sort.Strings(keys)
 				for _, w := range keys {
 					if seen[w] >= maxEchoes {
-						out = append(out, lint.Errorf("DOC-107",
+						out = append(out, lint.Errorf("PROSE-107",
 							"%q %d times in one sentence; it circles", w, seen[w]).
 							At(where).Quoting(sent))
 						break
@@ -540,7 +540,7 @@ func (l *Linter) unshownScripts(raw, rel string) []lint.Problem {
 		if strings.Count(raw[lineStart:m[0]], "`")%2 == 1 {
 			continue
 		}
-		out = append(out, lint.Errorf("DOC-105",
+		out = append(out, lint.Errorf("PROSE-105",
 			"./%s is run but never shown to the reader", name).
 			At(fmt.Sprintf("%s:%d", rel, lint.Line(raw, m[0]))).
 			Quoting(mdtext.Context(raw, m[0])))
@@ -573,7 +573,7 @@ func (l *Linter) assertedCounts(text, rel string) []lint.Problem {
 	for _, m := range l.counted.FindAllStringSubmatchIndex(body, -1) {
 		phrase := strings.TrimSpace(body[m[2]:m[1]])
 		noun := body[m[6]:m[7]]
-		out = append(out, lint.Errorf("DOC-113",
+		out = append(out, lint.Errorf("PROSE-113",
 			"%q states a count that changes without this sentence; name what reports %s instead",
 			phrase, noun).
 			At(fmt.Sprintf("%s:%d", rel, lint.Line(body, m[0]))))
@@ -615,7 +615,7 @@ func (l *Linter) undefinedTerms(raw, rel string) []lint.Problem {
 		if gloss.MatchString(para) || strings.Contains(before, "](") {
 			continue
 		}
-		out = append(out, lint.Errorf("DOC-101",
+		out = append(out, lint.Errorf("PROSE-101",
 			"%q used before anything introduces it", term.word).
 			At(fmt.Sprintf("%s:%d", rel, lint.Line(body, m[0]))).
 			Quoting(lint.Truncate(mdtext.Flatten(para), 110)))

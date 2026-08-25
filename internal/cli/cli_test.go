@@ -14,20 +14,33 @@ import (
 // printed and the exit code it set.
 func runCLI(t *testing.T, root string, args ...string) (string, int) {
 	t.Helper()
+	out, exit, err := tryCLI(t, root, args...)
+	if err != nil {
+		t.Fatalf("%v: %v\n%s", args, err, out)
+	}
+	return out, exit
+}
+
+// tryCLI is runCLI for the cases where failing is the point: a command that
+// was removed, or a tuning file the tool refuses to run against.
+func tryCLI(t *testing.T, root string, args ...string) (string, int, error) {
+	t.Helper()
 	code = exitOK
 	opt := &options{}
-	root_ := &cobra.Command{Use: "cs-lint", SilenceUsage: true, SilenceErrors: true}
-	root_.PersistentFlags().StringVar(&opt.root, "root", ".", "")
-	root_.PersistentFlags().BoolVar(&opt.verbose, "verbose", false, "")
-	root_.AddCommand(docsCmd(opt), ossCmd(opt), walkthroughCmd(opt), manualCmd(), versionCmd())
+	tree := &cobra.Command{Use: "cs-lint", SilenceUsage: true, SilenceErrors: true}
+	tree.PersistentFlags().StringVar(&opt.root, "root", ".", "")
+	tree.PersistentFlags().BoolVar(&opt.verbose, "verbose", false, "")
+	tree.AddCommand(proseCmd(opt), refsCmd(opt), surfaceCmd(opt), ossCmd(opt),
+		walkthroughCmd(), manualCmd(), versionCmd())
 	var out bytes.Buffer
-	root_.SetOut(&out)
-	root_.SetErr(&out)
-	root_.SetArgs(append([]string{"--root", root}, args...))
-	if err := root_.Execute(); err != nil {
-		t.Fatalf("%v: %v\n%s", args, err, out.String())
+	tree.SetOut(&out)
+	tree.SetErr(&out)
+	tree.SetArgs(append([]string{"--root", root}, args...))
+	err := tree.Execute()
+	if err != nil {
+		return out.String(), exitBadUsage, err
 	}
-	return out.String(), code
+	return out.String(), code, nil
 }
 
 func scratch(t *testing.T, files map[string]string) string {
@@ -59,33 +72,33 @@ func TestManualPrints(t *testing.T) {
 	}
 }
 
-func TestDocsReportsAndExitsNonZero(t *testing.T) {
+func TestProseReportsAndExitsNonZero(t *testing.T) {
 	root := scratch(t, map[string]string{"DOC.md": "The the word is written twice.\n"})
-	out, exit := runCLI(t, root, "docs")
+	out, exit := runCLI(t, root, "prose")
 	if exit != exitFound {
 		t.Errorf("a repository with a finding exited %d, want %d", exit, exitFound)
 	}
-	if !strings.Contains(out, "DOC-109") {
+	if !strings.Contains(out, "PROSE-109") {
 		t.Errorf("the finding is not in the output: %q", out)
 	}
 }
 
-func TestDocsPassesOnCleanProse(t *testing.T) {
+func TestProsePassesOnCleanProse(t *testing.T) {
 	root := scratch(t, map[string]string{
 		"DOC.md": "# Heading\n\nYou run the gate before you push.\n"})
-	out, exit := runCLI(t, root, "docs")
+	out, exit := runCLI(t, root, "prose")
 	if exit != exitOK {
 		t.Errorf("clean prose exited %d: %s", exit, out)
 	}
 }
 
-func TestDocsListAndStats(t *testing.T) {
+func TestProseListAndStats(t *testing.T) {
 	root := scratch(t, map[string]string{"README.md": "# x\n\nYou read it.\n"})
-	out, _ := runCLI(t, root, "docs", "--list")
+	out, _ := runCLI(t, root, "prose", "--list")
 	if !strings.Contains(out, "README.md") {
 		t.Errorf("--list printed %q", out)
 	}
-	out, _ = runCLI(t, root, "docs", "--stats")
+	out, _ = runCLI(t, root, "prose", "--stats")
 	if !strings.Contains(out, "words") {
 		t.Errorf("--stats printed %q", out)
 	}
@@ -94,8 +107,8 @@ func TestDocsListAndStats(t *testing.T) {
 func TestExplainNamesTheGuidance(t *testing.T) {
 	// A writer arguing with a rule deserves to know whether it is this house's
 	// preference or an industry convention with a page behind it.
-	out, _ := runCLI(t, t.TempDir(), "docs", "--explain")
-	for _, want := range []string{"DOC-101", "DOC-111", "Google", "Red Hat",
+	out, _ := runCLI(t, t.TempDir(), "prose", "--explain")
+	for _, want := range []string{"PROSE-101", "PROSE-111", "Google", "Red Hat",
 		"developers.google.com/style", "redhat-documentation.github.io"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("--explain does not mention %q", want)
@@ -103,14 +116,16 @@ func TestExplainNamesTheGuidance(t *testing.T) {
 	}
 }
 
-func TestOSSAndWalkthroughExplain(t *testing.T) {
-	out, _ := runCLI(t, t.TempDir(), "oss", "--explain")
-	if !strings.Contains(out, "OSS-101") || !strings.Contains(out, "OSS-803") {
-		t.Errorf("oss --explain printed %q", out[:min(len(out), 200)])
-	}
-	out, _ = runCLI(t, t.TempDir(), "walkthrough", "--explain")
-	if !strings.Contains(out, "WALK-101") || !strings.Contains(out, "WALK-602") {
-		t.Errorf("walkthrough --explain printed %q", out[:min(len(out), 200)])
+func TestEveryLinterExplainsItsRules(t *testing.T) {
+	for _, tc := range []struct{ verb, first, last string }{
+		{"oss", "OSS-101", "OSS-803"},
+		{"refs", "REF-101", "REF-303"},
+		{"surface", "SURF-101", "SURF-303"},
+	} {
+		out, _ := runCLI(t, t.TempDir(), tc.verb, "--explain")
+		if !strings.Contains(out, tc.first) || !strings.Contains(out, tc.last) {
+			t.Errorf("%s --explain printed %q", tc.verb, out[:min(len(out), 200)])
+		}
 	}
 }
 
@@ -128,24 +143,38 @@ func TestReviewPacksRender(t *testing.T) {
 		strings.Contains(out, "claude") {
 		t.Error("the pack still refers to a tool cs-lint does not drive")
 	}
-	out, _ = runCLI(t, t.TempDir(), "walkthrough", "--review")
-	if !strings.Contains(out, "REV-W1") || !strings.Contains(out, "REV-W6") {
-		t.Error("the walkthrough review pack is incomplete")
+	out, _ = runCLI(t, t.TempDir(), "refs", "--review")
+	if !strings.Contains(out, "REV-R1") || !strings.Contains(out, "REV-R3") {
+		t.Error("the reference review pack is incomplete")
+	}
+	out, _ = runCLI(t, t.TempDir(), "surface", "--review")
+	if !strings.Contains(out, "REV-S1") || !strings.Contains(out, "REV-S3") {
+		t.Error("the interface review pack is incomplete")
 	}
 }
 
-func TestWalkthroughListAndRun(t *testing.T) {
+func TestSurfaceListAndRun(t *testing.T) {
 	root := scratch(t, map[string]string{
-		"README.md": "```bash\ncs-lint docs\n```\n",
+		"README.md": "```bash\ncs-lint prose\n```\n",
 		"MANUAL.md": "# m\n",
 	})
-	out, _ := runCLI(t, root, "walkthrough", "--list")
+	out, _ := runCLI(t, root, "surface", "--list")
 	if !strings.Contains(out, "tool:") {
 		t.Errorf("--list printed %q", out)
 	}
-	out, _ = runCLI(t, root, "walkthrough", "--run")
+	out, _ = runCLI(t, root, "surface", "--run")
 	if !strings.Contains(out, "documented command") {
 		t.Errorf("--run printed %q", out)
+	}
+}
+
+func TestRefsListPrintsWhatItFound(t *testing.T) {
+	root := scratch(t, map[string]string{"README.md": "# x\n"})
+	out, _ := runCLI(t, root, "refs", "--list")
+	for _, want := range []string{"documents:", "blocks:", "rules:"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("--list does not print %q: %s", want, out)
+		}
 	}
 }
 
@@ -155,6 +184,58 @@ func TestABrokenConfigIsReported(t *testing.T) {
 	opt := &options{root: root}
 	if _, _, err := load(opt); err == nil {
 		t.Error("a misspelled knob was accepted")
+	}
+}
+
+// A waiver whose identifier matches nothing is a rule switched off in private,
+// which is what requiring a reason exists to prevent. It stops the run.
+func TestAnUnknownWaiverStopsTheRun(t *testing.T) {
+	for _, tc := range []struct{ body, names string }{
+		{"oss:\n  allow:\n    OSS-999: \"no such rule\"\n", "not a rule cs-lint carries"},
+		{"docs:\n  refs:\n    allow:\n      WALK-302: \"renumbered\"\n", "REF-101"},
+		{"docs:\n  surface:\n    allow:\n      DOC-104: \"renamed\"\n", "PROSE-104"},
+		{"docs:\n  refs:\n    allow:\n      SURF-101: \"wrong section\"\n", "docs.surface.allow"},
+	} {
+		root := scratch(t, map[string]string{".cs-lint.yaml": tc.body})
+		out, exit, err := tryCLI(t, root, "oss")
+		if err == nil {
+			t.Errorf("%s was accepted: %s", tc.body, out)
+			continue
+		}
+		if exit != exitBadUsage {
+			t.Errorf("%s exited %d, want %d", tc.body, exit, exitBadUsage)
+		}
+		if !strings.Contains(err.Error(), tc.names) {
+			t.Errorf("%q does not name %q", err, tc.names)
+		}
+	}
+}
+
+// A waiver naming a rule the linter carries is applied rather than reported.
+func TestAKnownWaiverIsAccepted(t *testing.T) {
+	root := scratch(t, map[string]string{
+		".cs-lint.yaml": "docs:\n  refs:\n    allow:\n      REF-302: \"the router is generated\"\n",
+		"README.md":     "# x\n",
+	})
+	if _, _, err := tryCLI(t, root, "refs"); err != nil {
+		t.Errorf("a waiver naming a real rule was rejected: %v", err)
+	}
+}
+
+// The command that was split answers by name, and exits 2 rather than 1: a
+// gate still calling it is broken rather than failing.
+func TestTheSplitCommandNamesItsSuccessors(t *testing.T) {
+	out, exit, err := tryCLI(t, t.TempDir(), "walkthrough")
+	if err == nil {
+		t.Fatalf("the removed command ran: %s", out)
+	}
+	if exit != exitBadUsage {
+		t.Errorf("it exited %d, want %d", exit, exitBadUsage)
+	}
+	for _, want := range []string{"cs-lint surface", "cs-lint refs"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("%q does not name %s", err, want)
+		}
 	}
 }
 
@@ -202,13 +283,21 @@ func TestOSSRunsAndReports(t *testing.T) {
 	}
 }
 
-func TestWalkthroughRuns(t *testing.T) {
+func TestRefsRuns(t *testing.T) {
 	root := scratch(t, map[string]string{
 		"AGENTS.md": "# routes\n\nREADME.md\n",
 		"README.md": "# x\n",
 	})
-	out, _ := runCLI(t, root, "walkthrough")
-	if !strings.Contains(out, "walkthrough:") {
+	out, _ := runCLI(t, root, "refs")
+	if !strings.Contains(out, "refs:") {
+		t.Errorf("no summary line: %s", out)
+	}
+}
+
+func TestSurfaceRuns(t *testing.T) {
+	root := scratch(t, map[string]string{"README.md": "# x\n", "MANUAL.md": "# m\n"})
+	out, _ := runCLI(t, root, "surface")
+	if !strings.Contains(out, "surface:") {
 		t.Errorf("no summary line: %s", out)
 	}
 }

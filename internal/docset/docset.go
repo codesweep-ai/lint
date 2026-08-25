@@ -1,18 +1,15 @@
-// Package walk checks that the documentation still describes the software it
-// ships with.
+// Package docset is the repository as the documentation rules read it: the
+// document set, the fenced blocks in it, the source, the build files, and the
+// binary the checkout builds.
 //
-// The prose linter checks how the documents are written. The readiness linter
-// checks what a published repository owes a reader. This one checks the
-// claims: that every command a document names exists, that every command the
-// tool carries is named, that the settings the code reads are the settings the
-// documents list, that a sample output is still what the command prints, and
-// that a tool the build needs is named somewhere a reader will find it.
+// Two linters read the same repository. `cs-lint surface` asks the binary what
+// it carries and compares that against the documents. `cs-lint refs` resolves
+// what the documents point at. Both need the same document set, the same
+// blocks and the same tracked text, and a second copy of that machinery would
+// be a second chance for the two to disagree about what this repository says.
 //
-// Every check compares a document against something that cannot lie: the
-// tool's own help tree, the source that reads an environment variable, the
-// build file that shells out to a binary, or the command re-run right now.
-// Nothing here guesses what a document ought to say.
-package walk
+// Nothing here decides what is wrong. The rule packages do.
+package docset
 
 import (
 	"os"
@@ -28,15 +25,6 @@ import (
 	"github.com/codesweep-ai/lint/internal/config"
 	"github.com/codesweep-ai/lint/internal/lint"
 )
-
-// rule is one claims check.
-type rule struct {
-	id       string
-	severity lint.Severity
-	title    string
-	why      string
-	check    func(*Linter) []lint.Problem
-}
 
 // Block is one fenced block, with where it came from and what it holds.
 //
@@ -55,11 +43,11 @@ type Block struct {
 // Where is the address a finding in this block carries.
 func (b Block) Where() string { return b.Doc + ":" + strconv.Itoa(b.Line) }
 
-// splitLines cuts a body into lines, treating a trailing newline as ending the
+// SplitLines cuts a body into lines, treating a trailing newline as ending the
 // last line rather than starting an empty one. A block's body always ends with
 // one, and an empty final line would otherwise read as an output line the
 // command never printed.
-func splitLines(body string) []string {
+func SplitLines(body string) []string {
 	body = strings.TrimSuffix(body, "\n")
 	if body == "" {
 		return nil
@@ -67,10 +55,12 @@ func splitLines(body string) []string {
 	return strings.Split(body, "\n")
 }
 
-func newBlock(doc string, line int, lang, body string) Block {
+// NewBlock reads one fenced block, splitting a console sample into the
+// commands and the output they claim to print.
+func NewBlock(doc string, line int, lang, body string) Block {
 	b := Block{Doc: doc, Line: line, Lang: lang, Body: body}
 	if lang == "console" {
-		for _, raw := range splitLines(body) {
+		for _, raw := range SplitLines(body) {
 			switch {
 			case strings.HasPrefix(raw, "$ "):
 				b.Commands = append(b.Commands, raw[2:])
@@ -82,7 +72,7 @@ func newBlock(doc string, line int, lang, body string) Block {
 		return b
 	}
 	var continued string
-	for _, raw := range splitLines(body) {
+	for _, raw := range SplitLines(body) {
 		line := strings.TrimSpace(raw)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
@@ -100,9 +90,34 @@ func newBlock(doc string, line int, lang, body string) Block {
 	return b
 }
 
-// Linter checks one repository's claims.
-type Linter struct {
-	cfg  config.Walkthrough
+// IsShell reports whether a fenced block's language is a shell a reader types
+// into.
+func IsShell(lang string) bool {
+	switch lang {
+	case "bash", "sh", "shell", "console":
+		return true
+	}
+	return false
+}
+
+// Placeholders are the shapes a path takes when it is the reader's to supply.
+//
+// The reference rules report one a walkthrough leaves undeclared, and the
+// inventory annotates the line it appears on, so both read this list.
+var Placeholders = []*regexp.Regexp{
+	regexp.MustCompile(`~/projects/\S+`),
+	regexp.MustCompile(`/path/to/\S+`),
+	regexp.MustCompile(`<your[-\w]*>`),
+	regexp.MustCompile(`~/my-\S+`),
+	regexp.MustCompile(`/my-\S+`),
+	regexp.MustCompile(`<PATH>`),
+	regexp.MustCompile(`<name-of-\S+>`),
+}
+
+// Set is one repository's documents and everything the rules compare them
+// against.
+type Set struct {
+	cfg  config.Docs
 	repo *lint.Repo
 
 	text    map[string]string
@@ -114,9 +129,10 @@ type Linter struct {
 	gotBin  bool
 }
 
-// New returns a claims linter for the repository given.
-func New(cfg config.Walkthrough, repo *lint.Repo) *Linter {
-	l := &Linter{cfg: cfg, repo: repo, text: map[string]string{}}
+// New reads the repository given. Every tracked file is read once here, so a
+// run costs one pass over the tree however many rules want it.
+func New(cfg config.Docs, repo *lint.Repo) *Set {
+	s := &Set{cfg: cfg, repo: repo, text: map[string]string{}}
 	const tooBig = 8 << 20
 	for _, path := range repo.Tracked() {
 		full := repo.Path(path)
@@ -128,18 +144,27 @@ func New(cfg config.Walkthrough, repo *lint.Repo) *Linter {
 		if err != nil || !utf8.Valid(b) {
 			continue
 		}
-		l.text[path] = string(b)
-		l.order = append(l.order, path)
+		s.text[path] = string(b)
+		s.order = append(s.order, path)
 	}
-	sort.Strings(l.order)
-	return l
+	sort.Strings(s.order)
+	return s
+}
+
+// Repo is the repository under check.
+func (s *Set) Repo() *lint.Repo { return s.repo }
+
+// Text returns a tracked file's contents, and whether it is there.
+func (s *Set) Text(name string) (string, bool) {
+	body, ok := s.text[name]
+	return body, ok
 }
 
 // Docs returns the document set that is present, in the order a reader meets it.
-func (l *Linter) Docs() []string {
+func (s *Set) Docs() []string {
 	var out []string
-	for _, n := range append(append([]string(nil), l.cfg.Docs...), l.cfg.ExtraDocs...) {
-		if _, ok := l.text[n]; ok {
+	for _, n := range append(append([]string(nil), s.cfg.Documents...), s.cfg.ExtraDocs...) {
+		if _, ok := s.text[n]; ok {
 			out = append(out, n)
 		}
 	}
@@ -154,17 +179,17 @@ func (l *Linter) Docs() []string {
 // somewhere else, a corpus, a template materialized into a consumer repo, or a
 // page another tool generates. A nested README makes the same claims the doc
 // set does, and a path it names that has moved is wrong in the same way.
-func (l *Linter) Markdown() []string {
+func (s *Set) Markdown() []string {
 	inSet := map[string]bool{}
-	for _, n := range l.Docs() {
+	for _, n := range s.Docs() {
 		inSet[n] = true
 	}
-	out := append([]string(nil), l.Docs()...)
-	for _, name := range l.order {
+	out := append([]string(nil), s.Docs()...)
+	for _, name := range s.order {
 		if inSet[name] || !strings.HasSuffix(name, ".md") {
 			continue
 		}
-		if l.skipMarkdown(name) {
+		if covers(s.cfg.Refs.MarkdownSkip, name) {
 			continue
 		}
 		out = append(out, name)
@@ -172,19 +197,9 @@ func (l *Linter) Markdown() []string {
 	return out
 }
 
-// skipCitations reports whether a declared prefix covers this file.
-func (l *Linter) skipCitations(name string) bool {
-	for prefix := range l.cfg.CitationSkip {
-		if strings.HasPrefix(name, prefix) {
-			return true
-		}
-	}
-	return false
-}
-
-// skipMarkdown reports whether a declared prefix covers this file.
-func (l *Linter) skipMarkdown(name string) bool {
-	for prefix := range l.cfg.MarkdownSkip {
+// covers reports whether a declared prefix covers this file.
+func covers(skip map[string]string, name string) bool {
+	for prefix := range skip {
 		if strings.HasPrefix(name, prefix) {
 			return true
 		}
@@ -197,10 +212,10 @@ func (l *Linter) skipMarkdown(name string) bool {
 //
 // Not named Prose: mdtext.Prose strips what is not prose from one document,
 // and a reader meeting both would reasonably expect them to be related.
-func (l *Linter) AllText() string {
+func (s *Set) AllText() string {
 	var b strings.Builder
-	for _, n := range l.Docs() {
-		b.WriteString(l.text[n])
+	for _, n := range s.Docs() {
+		b.WriteString(s.text[n])
 		b.WriteString("\n")
 	}
 	return b.String()
@@ -213,19 +228,19 @@ func (l *Linter) AllText() string {
 var fenced = regexp.MustCompile("(?sm)^```([a-zA-Z]*)\n(.*?)^```")
 
 // Blocks returns every fenced block in the document set.
-func (l *Linter) Blocks() []Block {
-	if l.blocks != nil {
-		return l.blocks
+func (s *Set) Blocks() []Block {
+	if s.blocks != nil {
+		return s.blocks
 	}
-	l.blocks = []Block{}
-	for _, name := range l.Docs() {
-		body := l.text[name]
+	s.blocks = []Block{}
+	for _, name := range s.Docs() {
+		body := s.text[name]
 		for _, m := range fenced.FindAllStringSubmatchIndex(body, -1) {
-			l.blocks = append(l.blocks, newBlock(name, lint.Line(body, m[0]),
+			s.blocks = append(s.blocks, NewBlock(name, lint.Line(body, m[0]),
 				strings.ToLower(body[m[2]:m[3]]), body[m[4]:m[5]]))
 		}
 	}
-	return l.blocks
+	return s.blocks
 }
 
 var (
@@ -235,56 +250,56 @@ var (
 )
 
 // Tool is the command name, guessed from the build file when not configured.
-func (l *Linter) Tool() string {
-	if l.cfg.Tool != "" {
-		return l.cfg.Tool
+func (s *Set) Tool() string {
+	if s.cfg.Surface.Tool != "" {
+		return s.cfg.Surface.Tool
 	}
-	mk := l.text["Makefile"] + l.text["makefile"]
+	mk := s.text["Makefile"] + s.text["makefile"]
 	if m := makeBin.FindStringSubmatch(mk); m != nil {
 		return m[1]
 	}
-	gor := l.text[".goreleaser.yaml"] + l.text[".goreleaser.yml"]
+	gor := s.text[".goreleaser.yaml"] + s.text[".goreleaser.yml"]
 	if m := releaseName.FindStringSubmatch(gor); m != nil {
 		return m[1]
 	}
-	return filepath.Base(l.repo.Root)
+	return filepath.Base(s.repo.Root)
 }
 
 // Binary is a binary to ask for help, preferring the one this checkout built
 // over whatever the developer installed last.
-func (l *Linter) Binary() string {
-	if l.gotBin {
-		return l.binary
+func (s *Set) Binary() string {
+	if s.gotBin {
+		return s.binary
 	}
-	l.gotBin = true
+	s.gotBin = true
 	var candidates []string
-	if l.cfg.ToolPath != "" {
-		candidates = append(candidates, l.repo.Path(l.cfg.ToolPath))
+	if s.cfg.Surface.ToolPath != "" {
+		candidates = append(candidates, s.repo.Path(s.cfg.Surface.ToolPath))
 	}
-	candidates = append(candidates, l.repo.Path(filepath.Join("bin", l.Tool())))
+	candidates = append(candidates, s.repo.Path(filepath.Join("bin", s.Tool())))
 	for _, path := range candidates {
 		if st, err := os.Stat(path); err == nil && st.Mode().IsRegular() &&
 			st.Mode().Perm()&0o111 != 0 {
-			l.binary = path
-			return l.binary
+			s.binary = path
+			return s.binary
 		}
 	}
-	if found, err := exec.LookPath(l.Tool()); err == nil {
-		l.binary = found
+	if found, err := exec.LookPath(s.Tool()); err == nil {
+		s.binary = found
 	}
-	return l.binary
+	return s.binary
 }
 
 // RunTool runs the tool and returns its combined output and its exit status.
 // A status of -1 means the tool could not be run at all, which a check reports
 // as a skip rather than a pass.
-func (l *Linter) RunTool(args ...string) (out string, status int) {
-	binary := l.Binary()
+func (s *Set) RunTool(args ...string) (out string, status int) {
+	binary := s.Binary()
 	if binary == "" {
 		return "", -1
 	}
 	cmd := exec.Command(binary, args...)
-	cmd.Dir = l.repo.Root
+	cmd.Dir = s.repo.Root
 	done := make(chan struct{})
 	var b []byte
 	var err error
@@ -311,14 +326,14 @@ func (l *Linter) RunTool(args ...string) (out string, status int) {
 //
 // Walked rather than assumed: a subcommand's own subcommands are where a
 // surface goes undocumented, because nothing at the top level names them.
-func (l *Linter) HelpTree() map[string]string {
-	if l.gotHelp {
-		return l.help
+func (s *Set) HelpTree() map[string]string {
+	if s.gotHelp {
+		return s.help
 	}
-	l.gotHelp = true
-	l.help = map[string]string{}
-	if l.Binary() == "" {
-		return l.help
+	s.gotHelp = true
+	s.help = map[string]string{}
+	if s.Binary() == "" {
+		return s.help
 	}
 	pending := [][]string{{}}
 	seen := map[string]bool{}
@@ -330,31 +345,31 @@ func (l *Linter) HelpTree() map[string]string {
 			continue
 		}
 		seen[key] = true
-		text, status := l.RunTool(append(append([]string{}, path...), "--help")...)
+		text, status := s.RunTool(append(append([]string{}, path...), "--help")...)
 		if status < 0 {
 			continue
 		}
-		l.help[key] = text
+		s.help[key] = text
 		// A tool with no per-verb help answers `<tool> <verb> --help` with the
 		// page its parent gave, listing the same verbs again. Reading those as
 		// children multiplies the tree by itself at every level, so an
 		// identical page means this verb has no subcommands.
 		if len(path) > 0 {
-			if parent, ok := l.help[strings.Join(path[:len(path)-1], " ")]; ok && parent == text {
+			if parent, ok := s.help[strings.Join(path[:len(path)-1], " ")]; ok && parent == text {
 				continue
 			}
 		}
-		for _, child := range verbsIn(text) {
+		for _, child := range VerbsIn(text) {
 			pending = append(pending, append(append([]string{}, path...), child))
 		}
 	}
-	return l.help
+	return s.help
 }
 
 // Verbs is every verb path the tool carries, space-joined.
-func (l *Linter) Verbs() map[string]bool {
+func (s *Set) Verbs() map[string]bool {
 	out := map[string]bool{}
-	for path := range l.HelpTree() {
+	for path := range s.HelpTree() {
 		if path != "" {
 			out[path] = true
 		}
@@ -369,9 +384,9 @@ var longFlag = regexp.MustCompile(`(--[a-z][a-z0-9-]+)`)
 // The completion subtree is left out: its flags come from the shell completion
 // framework rather than from this project, and a document that named them
 // would be documenting somebody else's surface.
-func (l *Linter) Flags() map[string]bool {
+func (s *Set) Flags() map[string]bool {
 	out := map[string]bool{}
-	for path, text := range l.HelpTree() {
+	for path, text := range s.HelpTree() {
 		if path == "completion" || strings.HasPrefix(path, "completion ") {
 			continue
 		}
@@ -389,32 +404,26 @@ var sourceExts = []string{".go", ".rs", ".py", ".ts", ".tsx", ".js", ".jsx",
 //
 // Tests are left out. A variable only the suite reads is instrumentation
 // rather than a setting, and documenting it would tell a user to reach for
-// something built for the harness.
-func (l *Linter) Source(visit func(path, body string)) {
-	for _, path := range l.order {
-		if strings.HasPrefix(path, "vendor/") || isTest(path) {
+// something built for the harness. A tree the tuning file declares under
+// `surface.sourceSkip` is left out too: what it says is another program's.
+func (s *Set) Source(visit func(path, body string)) {
+	for _, path := range s.order {
+		if strings.HasPrefix(path, "vendor/") || IsTest(path) {
 			continue
 		}
-		skip := false
-		for prefix := range l.cfg.SourceSkip {
-			if strings.HasPrefix(path, prefix) {
-				skip = true
-				break
-			}
-		}
-		if skip {
+		if covers(s.cfg.Surface.SourceSkip, path) {
 			continue
 		}
 		for _, ext := range sourceExts {
 			if strings.HasSuffix(path, ext) {
-				visit(path, l.text[path])
+				visit(path, s.text[path])
 				break
 			}
 		}
 	}
 }
 
-// citedByDefault is the document a bare § is read against, or empty where
+// CitedByDefault is the document a bare § is read against, or empty where
 // there is no unambiguous answer.
 //
 // The spec is it wherever there is one, because that is the document a comment
@@ -422,10 +431,10 @@ func (l *Linter) Source(visit func(path, body string)) {
 // document that numbers its sections has only one candidate. Anything else is
 // ambiguous, and a rule that guesses which document was meant reports a
 // finding nobody can act on.
-func (l *Linter) citedByDefault() string {
+func (s *Set) CitedByDefault() string {
 	var numbered []string
-	for _, name := range l.Docs() {
-		if !numberedSection.MatchString(l.text[name]) {
+	for _, name := range s.Docs() {
+		if !numberedSection.MatchString(s.text[name]) {
 			continue
 		}
 		if name == "SPEC.md" {
@@ -451,12 +460,12 @@ var numberedSection = regexp.MustCompile(`(?m)^#{2,6}\s+\d+(?:\.\d+)*[.\s]`)
 // repository's own spec: the shell scripts a sandbox image ships are the case
 // this was written for, and they carry no file extension either, so a file
 // opening with a shebang counts as source here.
-func (l *Linter) AllSource(visit func(path, body string)) {
-	for _, path := range l.order {
+func (s *Set) AllSource(visit func(path, body string)) {
+	for _, path := range s.order {
 		if strings.HasPrefix(path, "vendor/") {
 			continue
 		}
-		body := l.text[path]
+		body := s.text[path]
 		named := false
 		for _, ext := range sourceExts {
 			if strings.HasSuffix(path, ext) {
@@ -471,19 +480,19 @@ func (l *Linter) AllSource(visit func(path, body string)) {
 }
 
 // EnvPrefix is the variable prefix this tool reads.
-func (l *Linter) EnvPrefix() string {
-	if l.cfg.EnvPrefix != "" {
-		return l.cfg.EnvPrefix
+func (s *Set) EnvPrefix() string {
+	if s.cfg.Surface.EnvPrefix != "" {
+		return s.cfg.Surface.EnvPrefix
 	}
-	return notUpper.ReplaceAllString(strings.ToUpper(l.Tool()), "_") + "_"
+	return notUpper.ReplaceAllString(strings.ToUpper(s.Tool()), "_") + "_"
 }
 
 // BuildFiles yields the files that describe how the project is built.
-func (l *Linter) BuildFiles(visit func(path, body string)) {
-	for _, path := range l.order {
+func (s *Set) BuildFiles(visit func(path, body string)) {
+	for _, path := range s.order {
 		if path == "Makefile" || path == "makefile" ||
 			strings.HasPrefix(path, "scripts/") || strings.HasPrefix(path, "Taskfile") {
-			visit(path, l.text[path])
+			visit(path, s.text[path])
 		}
 	}
 }
@@ -492,13 +501,13 @@ func (l *Linter) BuildFiles(visit func(path, body string)) {
 var reads = []string{"getenv", "lookupenv", "envor", "environ", "process.env",
 	"env[", "env::var", "env.var", "env_var", "env("}
 
-// envReads returns the prefixed variable names a file reads, with the write
+// EnvReads returns the prefixed variable names a file reads, with the write
 // sites left out.
 //
 // A tool that hands a child process `-e NAME=value` is not reading NAME, and a
 // list of those is the largest class of false positive an environment scan has.
 // A read is the name inside a getenv-shaped call, or spelled $NAME.
-func envReads(prefix, body string) map[string]bool {
+func EnvReads(prefix, body string) map[string]bool {
 	re := regexp.MustCompile(`(\$\{?)?\b(` + regexp.QuoteMeta(prefix) + `[A-Z0-9_]+)\b`)
 	names := map[string]bool{}
 	for _, m := range re.FindAllStringSubmatchIndex(body, -1) {
@@ -519,9 +528,9 @@ func envReads(prefix, body string) map[string]bool {
 	return names
 }
 
-// isTest reports whether a path is test code, by the conventions the languages
+// IsTest reports whether a path is test code, by the conventions the languages
 // use.
-func isTest(path string) bool {
+func IsTest(path string) bool {
 	name := filepath.Base(path)
 	for part := range strings.SplitSeq(path, "/") {
 		if part == "test" || part == "tests" || part == "spec" {
@@ -537,36 +546,13 @@ func isTest(path string) bool {
 		strings.Contains(name, ".test.") || strings.Contains(name, ".spec.")
 }
 
-var elision = regexp.MustCompile(`…|\.\.\.`)
-
-// matches reports whether a recorded line still matches what the command
-// printed.
-//
-// An elision stands for whatever the command prints there, which is how a
-// document keeps a sample true across a number that moves: a byte count, a
-// duration, a path under a temporary directory. Everything either side of it
-// still has to match, so the elision buys drift in one place rather than
-// turning the whole line off.
-func matches(recorded, actual string) bool {
-	if !strings.Contains(recorded, "…") && !strings.Contains(recorded, "...") {
-		return recorded == actual
-	}
-	parts := elision.Split(recorded, -1)
-	quoted := make([]string, 0, len(parts))
-	for _, p := range parts {
-		quoted = append(quoted, regexp.QuoteMeta(p))
-	}
-	re, err := regexp.Compile(`(?s)\A` + strings.Join(quoted, ".*") + `\z`)
-	return err == nil && re.MatchString(actual)
-}
-
-// verbOf returns the verb path in an argv, with flags and the values they take
+// VerbOf returns the verb path in an argv, with flags and the values they take
 // removed.
 //
 // A flag's value is a word like any other, so `--cassette build` would read as
 // a verb called build. Anything after a flag that carries no `=` is that
 // flag's value unless it is another flag.
-func verbOf(words []string) string {
+func VerbOf(words []string) string {
 	var path []string
 	skipNext := false
 	for _, word := range words {
@@ -590,8 +576,8 @@ var (
 	commandRow   = regexp.MustCompile(`^\s{1,6}([a-z][a-z0-9-]*)(?:\s+<[^>]+>|\s+\[[^\]]+\])?\s+\S`)
 )
 
-// verbsIn returns the subcommand names a help page lists.
-func verbsIn(help string) []string {
+// VerbsIn returns the subcommand names a help page lists.
+func VerbsIn(help string) []string {
 	var verbs []string
 	listing := false
 	for raw := range strings.SplitSeq(help, "\n") {
@@ -631,27 +617,4 @@ func verbsIn(help string) []string {
 		}
 	}
 	return append(ordinary, last...)
-}
-
-// Run applies every rule and returns what they found, with any waiver applied.
-func (l *Linter) Run() []lint.Problem {
-	var out []lint.Problem
-	for _, r := range rules {
-		out = append(out, l.runOne(r)...)
-	}
-	return lint.Waive(out, l.cfg.Allow)
-}
-
-func (l *Linter) runOne(r rule) []lint.Problem {
-	return lint.Guard(r.id, r.severity, func() []lint.Problem { return r.check(l) })
-}
-
-// Explain returns every rule, what it wants, and why it exists.
-func Explain() []lint.RuleDoc {
-	out := make([]lint.RuleDoc, 0, len(rules))
-	for _, r := range rules {
-		out = append(out, lint.RuleDoc{
-			ID: r.id, Severity: r.severity.String(), Title: r.title, Why: r.why})
-	}
-	return out
 }
