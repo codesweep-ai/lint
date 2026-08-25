@@ -117,7 +117,11 @@ func checkAllow(cfg *config.Config) error {
 // renamed, one that belongs under another section, or one that never existed.
 func explainWaiver(where, id string) error {
 	if to, ok := renamed(id); ok {
-		if block := waiverBlock(to); block != "" {
+		switch block := waiverBlock(to); {
+		case block == where:
+			return fmt.Errorf("%s: %s is now %s. Rename it here, keeping the reason",
+				where, id, to)
+		case block != "":
 			return fmt.Errorf("%s: %s is now %s. Waive it under %s, with the same reason",
 				where, id, to, block)
 		}
@@ -149,7 +153,7 @@ func walkthroughCmd() *cobra.Command {
 			return errors.New("`walkthrough` was split in two. " +
 				"`cs-lint surface` checks that the documented interface is the real one, " +
 				"and `cs-lint refs` checks that every reference resolves. " +
-				"`cs-lint docs` runs both, and the prose rules with them")
+				"The prose linter was `cs-lint docs` and is now `cs-lint prose`")
 		},
 	}
 }
