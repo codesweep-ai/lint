@@ -327,7 +327,7 @@ var rules = []rule{{
 			body := l.text[name]
 			for _, m := range pathToken.FindAllStringSubmatch(body, -1) {
 				token := strings.TrimRight(m[1], ".,;:")
-				head := strings.SplitN(token, "/", 2)[0]
+				head, _, _ := strings.Cut(token, "/")
 				if !roots[head] || strings.HasPrefix(token, "http") {
 					continue
 				}
@@ -566,7 +566,7 @@ var rules = []rule{{
 			body := l.text[name]
 			for _, m := range re.FindAllStringIndex(body, -1) {
 				end := min(m[1]+400, len(body))
-				tail := strings.SplitN(body[m[1]:end], "```", 2)[0]
+				tail, _, _ := strings.Cut(body[m[1]:end], "```")
 				var stale []string
 				for _, q := range semver.FindAllString(tail, -1) {
 					if !current[q] {

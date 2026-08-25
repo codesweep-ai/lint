@@ -43,7 +43,7 @@ a green run here is a green run there.
 Two of those need tools that are not in the Go distribution:
 
 ```bash
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.1
 go install golang.org/x/tools/cmd/deadcode@latest
 ```
 
