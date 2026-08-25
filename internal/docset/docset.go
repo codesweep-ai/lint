@@ -102,7 +102,7 @@ func IsShell(lang string) bool {
 
 // Placeholders are the shapes a path takes when it is the reader's to supply.
 //
-// The reference rules report one a walkthrough leaves undeclared, and the
+// The reference rules report one a how-to leaves undeclared, and the
 // inventory annotates the line it appears on, so both read this list.
 var Placeholders = []*regexp.Regexp{
 	regexp.MustCompile(`~/projects/\S+`),
