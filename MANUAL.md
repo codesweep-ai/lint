@@ -263,7 +263,7 @@ would let the two halves disagree.
 |---|---|---|
 | `project` | inferred | The command this repository ships. |
 | `githubRepo` | from the remote | The `owner/name` this repository is published as. |
-| `published` | `false` | Once true, the history rules report as warnings. |
+| `published` | `false` | Once true, the two rules that scan past commits for a leak report as warnings. |
 | `docSet` | the six documents | The documents this repository carries. |
 | `extraDocs` | empty | The standalone pages it adds, which the router must also name. |
 | `homeAllow` | `user`, `you`, `name`, `runner` | Home names that are a placeholder rather than a person. |
