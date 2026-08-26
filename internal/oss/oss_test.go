@@ -1219,3 +1219,23 @@ func TestAStatedGoFloorIsReadHoweverItIsWorded(t *testing.T) {
 		}
 	}
 }
+
+// A prerequisite list written across two lines is one list. Reading only the
+// physical line reported four gates as unreached in a repository that ran them
+// all.
+func TestAContinuedPrerequisiteListIsOneList(t *testing.T) {
+	mk := ".DEFAULT_GOAL := help\ncheck: fmt-check vet \\\n       prose refs oss\n" +
+		"fmt-check:\n\t@true\nvet:\n\t@true\nprose:\n\tcs-lint prose\n" +
+		"refs:\n\tcs-lint refs\noss:\n\tcs-lint oss\n"
+	if got := run(t, "OSS-411", config.OSS{}, map[string]string{"Makefile": mk}); len(got) != 0 {
+		t.Errorf("a continued prerequisite list was read as ending at the backslash: %v", got)
+	}
+	// And the same for the reachability the ci target is judged on.
+	files := map[string]string{
+		"Makefile":                 mk + "ci: check \\\n    prose\n\t@true\n",
+		".github/workflows/ci.yml": "jobs:\n  a:\n    steps:\n      - run: make prose\n",
+	}
+	if got := run(t, "OSS-418", config.OSS{}, files); len(got) != 0 {
+		t.Errorf("a continued ci prerequisite list was misread: %v", got)
+	}
+}

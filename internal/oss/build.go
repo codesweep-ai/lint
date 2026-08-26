@@ -53,8 +53,17 @@ func (l *Linter) releaseWorkflow() (string, bool) {
 	return l.read(".github/workflows/release.yaml")
 }
 
+// continued matches the backslash a Makefile line ends with to carry on.
+var continued = regexp.MustCompile(`\\\n[^\S\n]*`)
+
+// unfold joins the lines a backslash continues, so a prerequisite list written
+// across two lines reads as the one list it is. Every reader below wants the
+// logical line rather than the physical one.
+func unfold(body string) string { return continued.ReplaceAllString(body, " ") }
+
 // checkTarget returns the check target's prerequisites and its recipe.
 func checkTarget(body string) (prereqs []string, recipe string, ok bool) {
+	body = unfold(body)
 	// The pattern stops at the newline rather than crossing it: a greedy \s
 	// would swallow the tab-indented recipe, and a delegating target would
 	// then read as its own prerequisite.
@@ -309,7 +318,7 @@ var buildRules = []rule{{
 			return []lint.Problem{lint.Skipf("OSS-410", "no Makefile")}
 		}
 		have := map[string]bool{}
-		for _, m := range makeTarget.FindAllStringSubmatch(body, -1) {
+		for _, m := range makeTarget.FindAllStringSubmatch(unfold(body), -1) {
 			have[m[1]] = true
 		}
 		var out []lint.Problem
@@ -641,6 +650,7 @@ type makeRule struct {
 // assignment carries a colon too, so an entry is a name whose colon is not
 // followed by an equals sign.
 func makeRules(body string) map[string]makeRule {
+	body = unfold(body)
 	out := map[string]makeRule{}
 	name := ""
 	var recipe strings.Builder
