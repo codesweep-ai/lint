@@ -17,7 +17,10 @@ var (
 	secretRead     = regexp.MustCompile(`secrets\.([A-Z_][A-Z0-9_]*)`)
 	versionTag     = regexp.MustCompile(`^v\d+\.\d+\.\d+[\w.+-]*$`)
 	goDeclared     = regexp.MustCompile(`(?m)^go\s+(\d+)\.(\d+)`)
-	goClaimed      = regexp.MustCompile(`Go\s+(\d+)\.(\d+)\+`)
+	// The floor a page states, however it words it. Three repositories wrote
+	// "Go 1.26 or newer" and went on claiming a version they had moved off,
+	// because the pattern read only the `+` spelling.
+	goClaimed      = regexp.MustCompile(`Go\s+(\d+)\.(\d+)(?:\+|\s+or\s+(?:newer|later|above))`)
 	checkLine      = regexp.MustCompile(`(?m)^check:[^\S\n]*(.*)$`)
 	delegateScript = regexp.MustCompile(`([\w./-]*check\.sh)`)
 	releaseTagGlob = regexp.MustCompile(`tags:.*\bv\*`)

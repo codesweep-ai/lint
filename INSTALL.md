@@ -19,7 +19,7 @@ The shortest route, and the one that keeps the tool current:
 go install github.com/codesweep-ai/lint/cmd/cs-lint@latest
 ```
 
-This needs **Go 1.26 or newer**. The binary lands in `$(go env GOPATH)/bin`,
+This needs **Go 1.27 or newer**. The binary lands in `$(go env GOPATH)/bin`,
 which is `~/go/bin` unless you have moved it. Put that directory on your `PATH`
 if it is not already there:
 

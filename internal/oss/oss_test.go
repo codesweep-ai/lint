@@ -1186,3 +1186,36 @@ func TestTheCITargetMirrorsTheWorkflow(t *testing.T) {
 		t.Errorf("got %v, want a skip where the workflow names no make target", got)
 	}
 }
+
+// Three repositories wrote "Go 1.26 or newer" and went on claiming a version
+// they had moved off, because the pattern read only the `+` spelling.
+func TestAStatedGoFloorIsReadHoweverItIsWorded(t *testing.T) {
+	for _, claim := range []string{"Go 1.26+", "Go 1.26 or newer", "Go 1.26 or later"} {
+		files := map[string]string{
+			"go.mod":                   "module x\n\ngo 1.27.0\n",
+			"INSTALL.md":               "# Install\n\nNeeds **" + claim + "**.\n",
+			".github/workflows/ci.yml": "jobs:\n  a:\n    steps:\n      - uses: actions/setup-go@v7\n        with:\n          go-version-file: go.mod\n",
+		}
+		got := run(t, "OSS-412", config.OSS{}, files)
+		found := false
+		for _, p := range got {
+			if strings.Contains(p.Message, "1.27") && strings.Contains(p.Message, "1.26") {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("%q went unread: %v", claim, got)
+		}
+	}
+	// And a page that states the version it ships is left alone.
+	files := map[string]string{
+		"go.mod":                   "module x\n\ngo 1.27.0\n",
+		"INSTALL.md":               "# Install\n\nNeeds **Go 1.27 or newer**.\n",
+		".github/workflows/ci.yml": "jobs:\n  a:\n    steps:\n      - uses: actions/setup-go@v7\n        with:\n          go-version-file: go.mod\n",
+	}
+	for _, p := range run(t, "OSS-412", config.OSS{}, files) {
+		if strings.Contains(p.Message, "claims") {
+			t.Errorf("a page stating the version it ships was reported: %v", p)
+		}
+	}
+}
