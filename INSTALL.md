@@ -189,7 +189,18 @@ surface: build
 	cs-lint surface
 
 check: fmt-check vet lint test prose refs oss surface
+
+## ci: every job the CI workflow runs, on this machine
+ci:
+	$(MAKE) check
+	$(MAKE) build
 ```
+
+`check` is the fast gate before pushing. `ci` is the wider one: every job your
+workflow runs, so a red build is something you see on your laptop rather than
+after you push. cs-lint compares the two, and reports a target the workflow
+runs through make that `ci` does not reach. A job that needs a privileged host
+is named in `oss.ciSkip` with the reason.
 
 `prose` and `refs` read the tracked tree and nothing else, so they answer
 first and need no build. `surface` depends on `build` because every check in it

@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/codesweep-ai/lint/actions/workflows/ci.yml/badge.svg)](https://github.com/codesweep-ai/lint/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-![Rules](https://img.shields.io/badge/rules-102-informational)
+![Rules](https://img.shields.io/badge/rules-103-informational)
 ![Platforms](https://img.shields.io/badge/platform-Linux%20%C2%B7%20macOS-lightgrey)
 
 `cs-lint` is a linter for repositories. It has four commands:
@@ -86,6 +86,7 @@ oss:     ; cs-lint oss
 surface: build ; cs-lint surface
 
 check: fmt-check vet lint test prose refs oss surface
+ci:    check build            # every job your CI workflow runs, on one machine
 ```
 
 ## The four linters
