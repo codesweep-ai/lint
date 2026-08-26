@@ -416,6 +416,7 @@ oss:
   homeAllow: []            # placeholder home names, never a real login
   emailAllow: []           # documentation mail domains
   skipPaths: {}            # path prefix -> why the scans skip it
+  ciSkip: {}               # a target CI runs -> why `make ci` does not
   allow: {}                # rule id -> why it is waived
   binaryOK: []             # extensions a scan may skip as known assets
   requiredTargets: []      # task-runner targets that must exist

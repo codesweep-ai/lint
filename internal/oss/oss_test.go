@@ -348,7 +348,7 @@ func wellFormed() map[string]string {
 			"install:\n\t@true\nuninstall:\n\t@true\nfmt:\n\t@true\nfmt-check:\n\t@true\n" +
 			"vet:\n\t@true\nlint:\n\tgolangci-lint run\ndeadcode:\n\t@true\n" +
 			"prose:\n\tcs-lint prose\nrefs:\n\tcs-lint refs\noss:\n\tcs-lint oss\n" +
-			"clean:\n\t@true\n" +
+			"ci: check prose refs oss\n\t@true\nclean:\n\t@true\n" +
 			"check: fmt-check vet lint deadcode test prose refs oss\n\t@true\n",
 		".gitignore":     "# what never enters the tree\n/bin/\n/.env\n",
 		".gitattributes": "* text=auto eol=lf\n",
@@ -1139,5 +1139,50 @@ func TestASubjectConventionIsAdviceOncePushed(t *testing.T) {
 		if p.Severity != lint.Warn {
 			t.Errorf("a pushed subject reported %s, want warning: %v", p.Severity, p)
 		}
+	}
+}
+
+// `make ci` is the workflow's job list on one machine, so it is worth only
+// what it still covers. Where there is no workflow there is nothing to mirror.
+func TestTheCITargetMirrorsTheWorkflow(t *testing.T) {
+	const mk = ".DEFAULT_GOAL := help\ncheck:\n\t@true\nprose:\n\t@true\nrefs:\n\t@true\n"
+	const wf = "jobs:\n  a:\n    steps:\n      - run: make check\n" +
+		"  b:\n    steps:\n      - run: make prose\n"
+
+	// No workflow, no target: advice, because nothing is being mirrored.
+	got := run(t, "OSS-418", config.OSS{}, map[string]string{"Makefile": mk})
+	if len(got) != 1 || got[0].Severity != lint.Warn {
+		t.Errorf("got %v, want one warning where there is no workflow", got)
+	}
+
+	// A workflow and no target: the gate cannot be run before pushing.
+	got = run(t, "OSS-418", config.OSS{}, map[string]string{
+		"Makefile": mk, ".github/workflows/ci.yml": wf})
+	if len(got) != 1 || got[0].Severity != lint.Error {
+		t.Fatalf("got %v, want one error where a workflow has no local twin", got)
+	}
+
+	// A target that reaches only half of it names the half it misses.
+	got = run(t, "OSS-418", config.OSS{}, map[string]string{
+		"Makefile":                 mk + "ci:\n\t$(MAKE) --no-print-directory check\n",
+		".github/workflows/ci.yml": wf})
+	if len(got) != 1 || !strings.Contains(got[0].Message, "make prose") {
+		t.Errorf("got %v, want the job the target does not reach", got)
+	}
+
+	// Reached through a prerequisite counts as reached.
+	got = run(t, "OSS-418", config.OSS{}, map[string]string{
+		"Makefile":                 mk + "ci: check prose\n\t@true\n",
+		".github/workflows/ci.yml": wf})
+	if len(got) != 0 {
+		t.Errorf("a ci target reaching every job was reported: %v", got)
+	}
+
+	// And a workflow that routes nothing through make has nothing to compare.
+	got = run(t, "OSS-418", config.OSS{}, map[string]string{
+		"Makefile":                 mk + "ci:\n\t@true\n",
+		".github/workflows/ci.yml": "jobs:\n  a:\n    steps:\n      - run: go test ./...\n"})
+	if len(got) != 1 || got[0].Severity != lint.Skip {
+		t.Errorf("got %v, want a skip where the workflow names no make target", got)
 	}
 }

@@ -269,10 +269,11 @@ would let the two halves disagree.
 | `homeAllow` | `user`, `you`, `name`, `runner` | Home names that are a placeholder rather than a person. |
 | `emailAllow` | empty | Mail domains that are documentation addresses. |
 | `skipPaths` | empty | Path prefix to the reason the scans skip it. |
+| `ciSkip` | empty | A target the CI workflow runs to why `make ci` does not. |
 | `allow` | empty | Rule identifier to the reason it is waived. |
 | `binaryOK` | common asset types | Extensions a scan may skip as known binary assets. |
-| `requiredTargets` | `build test check prose refs oss clean` | Task-runner targets that must exist. |
-| `expectedTargets` | `help install uninstall fmt fmt-check vet lint` | The rest of the family's vocabulary. |
+| `requiredTargets` | `help build test check lint prose refs oss ci clean` | Task-runner targets that must exist. |
+| `expectedTargets` | `install uninstall fmt fmt-check vet` | The rest of the family's vocabulary. |
 
 Every waiver takes a reason rather than a bare rule identifier, and that reason
 is printed with the finding it waives. A waiver nobody can review is a rule
@@ -384,6 +385,15 @@ whatever `published` says. A commit a remote already has costs a rewrite of
 every clone somebody else made, so that half follows `published`. A clone that
 has a remote but has never fetched from it cannot tell the two apart, and there
 `published` decides the whole finding.
+
+**`OSS-418 the workflow runs ... which the ci target does not reach`**
+
+The CI workflow runs a target through make and `make ci` does not reach it,
+directly or through a prerequisite, a recipe, or a gate script it hands the
+work to. Either add it to the target, or name it in `oss.ciSkip` with the
+reason a local run leaves it out. Only what both sides route through make is
+compared: a workflow step is arbitrary shell, and matching one against a recipe
+would be guessing.
 
 **`OSS-702 ... commit subjects open with a category label`**
 

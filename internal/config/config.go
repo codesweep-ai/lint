@@ -160,6 +160,11 @@ type OSS struct {
 	// assets. Anything else that cannot be read as text is reported: a file
 	// nobody can inspect must never be reported as clean.
 	BinaryOK []string `yaml:"binaryOK"`
+	// CISkip maps a target the CI workflow runs to why `make ci` does not.
+	// A step that needs a privileged host or an hour is the case this is for.
+	// Nothing is excluded silently: a skip nobody can review is a gate
+	// deleted in private.
+	CISkip map[string]string `yaml:"ciSkip"`
 	// RequiredTargets are the task-runner targets the project must carry.
 	RequiredTargets []string `yaml:"requiredTargets"`
 	// ExpectedTargets are the rest of the family's vocabulary. A missing one
@@ -198,12 +203,13 @@ func Default() *Config {
 			HomeAllow: []string{"user", "you", "name", "runner"},
 			SkipPaths: map[string]string{},
 			Allow:     map[string]string{},
+			CISkip:    map[string]string{},
 			BinaryOK: []string{".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico",
 				".icns", ".woff", ".woff2", ".ttf", ".otf", ".pdf", ".zip",
 				".gz", ".tar", ".mp4", ".mov", ".wasm"},
-			RequiredTargets: []string{"build", "test", "check", "prose", "refs", "oss", "clean"},
-			ExpectedTargets: []string{"help", "install", "uninstall", "fmt",
-				"fmt-check", "vet", "lint"},
+			RequiredTargets: []string{"help", "build", "test", "check", "lint",
+				"prose", "refs", "oss", "clean"},
+			ExpectedTargets: []string{"install", "uninstall", "fmt", "fmt-check", "vet"},
 		},
 	}
 }

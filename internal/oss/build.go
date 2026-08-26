@@ -473,6 +473,61 @@ var buildRules = []rule{{
 		return nil
 	},
 }, {
+	id: "OSS-418", severity: lint.Error,
+	title: "The ci target runs what the CI workflow runs",
+	why: "A red build found after pushing is a round trip nobody needed. `make ci` is " +
+		"the workflow's job list on one machine, and it is worth only what it still " +
+		"covers: a job added to the workflow and not to the target leaves the gate " +
+		"reading green on a laptop and red on the forge. Only the targets both sides " +
+		"route through make are compared, because a workflow step is arbitrary shell " +
+		"and matching one against a recipe would be guessing. A step that needs a " +
+		"privileged host is named in ciSkip with the reason, because a gate left out in " +
+		"silence is a gate deleted in private. Where there is no workflow there is " +
+		"nothing to mirror, and the missing target is advice.",
+	check: func(l *Linter) []lint.Problem {
+		body := l.makefile()
+		if body == "" {
+			return []lint.Problem{lint.Skipf("OSS-418", "no Makefile")}
+		}
+		rules := makeRules(body)
+		_, hasCI := rules["ci"]
+		workflow, ok := l.ci()
+		if !ok {
+			if !hasCI {
+				return []lint.Problem{lint.Warnf("OSS-418",
+					"no ci target, and no workflow for one to mirror")}
+			}
+			return nil
+		}
+		wanted := makeCalls(workflow)
+		delete(wanted, "ci")
+		for t := range l.cfg.CISkip {
+			delete(wanted, t)
+		}
+		if !hasCI {
+			return []lint.Problem{lint.Errorf("OSS-418",
+				"the workflow runs %d make target(s) and the Makefile has no ci target "+
+					"to run them here", len(wanted))}
+		}
+		if len(wanted) == 0 {
+			return []lint.Problem{lint.Skipf("OSS-418",
+				"the workflow routes nothing through make, so there is nothing to compare")}
+		}
+		reached := l.reachedFrom(rules, "ci")
+		var missing []string
+		for _, t := range lint.SortedKeys(wanted) {
+			if !reached[t] {
+				missing = append(missing, t)
+			}
+		}
+		if len(missing) == 0 {
+			return nil
+		}
+		return []lint.Problem{lint.Errorf("OSS-418",
+			"the workflow runs `make %s`, which the ci target does not reach",
+			strings.Join(lint.First(missing, 6), "`, `make "))}
+	},
+}, {
 	id: "OSS-417", severity: lint.Error,
 	title: "The language's own static analysis is in the gate",
 	why: "gofmt and go vet catch what will not compile or is plainly wrong. They say " +
@@ -524,6 +579,134 @@ func (l *Linter) allWorkflows() string {
 		b.WriteString("\n")
 	}
 	return b.String()
+}
+
+// makeCall matches a target invoked through make, in a workflow step or in a
+// recipe. The flags between are skipped, so `$(MAKE) --no-print-directory
+// check` names check.
+//
+// It has to sit where a command sits: opening a line, or after a pipe, an
+// ampersand, a semicolon or a `run:`, with make's own `@` and `-` prefixes
+// allowed in between. Without that anchor the word is found in an apt package
+// list, where `git make gcc` reads as a target called gcc, and inside every
+// comment that mentions a target in passing.
+var makeCall = regexp.MustCompile(`(?m)(?:^|[|&;(]|\brun:)[^\S\n]*[@+-]*[^\S\n]*` +
+	`(?:\$\(MAKE\)|\$\{MAKE\}|make)[^\S\n]+(?:-\S+[^\S\n]+)*([a-zA-Z][\w.-]*)`)
+
+// shellMakeCall is the same, for a body that is all commands: a recipe, or a
+// script a recipe hands the work to. No anchor, because a helper wraps the
+// call in this family's scripts, as `run "prose" make prose`.
+var shellMakeCall = regexp.MustCompile(
+	`(?:\$\(MAKE\)|\$\{MAKE\}|\bmake)[^\S\n]+(?:-\S+[^\S\n]+)*([a-zA-Z][\w.-]*)`)
+
+// makeCalls are the targets a workflow invokes through make.
+//
+// Only make. A workflow step is arbitrary shell, and a rule that tried to
+// match one against a recipe would be guessing at what two spellings of the
+// same thing look like. What a project routes through its task runner is the
+// half both sides name identically, and it is the half a reader can act on.
+func makeCalls(body string) map[string]bool {
+	return found(makeCall, body)
+}
+
+// shellMakeCalls are the targets a recipe or a script invokes through make.
+//
+// The looser pattern is deliberate, and so is which side of the comparison it
+// reads. A stray match in a workflow invents a gate the project never had. A
+// stray match here only forgives one, which is the smaller wrong of the two.
+func shellMakeCalls(body string) map[string]bool {
+	return found(shellMakeCall, body)
+}
+
+func found(re *regexp.Regexp, body string) map[string]bool {
+	out := map[string]bool{}
+	for _, m := range re.FindAllStringSubmatch(body, -1) {
+		out[m[1]] = true
+	}
+	return out
+}
+
+// rule is one Makefile entry: what it depends on, and what it runs.
+type makeRule struct {
+	prereqs []string
+	recipe  string
+}
+
+// makeRules reads a Makefile into its entries.
+//
+// A line opening in a tab belongs to the entry above it. A variable
+// assignment carries a colon too, so an entry is a name whose colon is not
+// followed by an equals sign.
+func makeRules(body string) map[string]makeRule {
+	out := map[string]makeRule{}
+	name := ""
+	var recipe strings.Builder
+	flush := func() {
+		if name != "" {
+			r := out[name]
+			r.recipe += recipe.String()
+			out[name] = r
+		}
+		recipe.Reset()
+	}
+	for line := range strings.SplitSeq(body, "\n") {
+		if strings.HasPrefix(line, "\t") {
+			recipe.WriteString(line + "\n")
+			continue
+		}
+		m := makeEntry.FindStringSubmatch(line)
+		if m == nil {
+			continue
+		}
+		flush()
+		name = m[1]
+		out[name] = makeRule{prereqs: strings.Fields(m[2])}
+	}
+	flush()
+	return out
+}
+
+var makeEntry = regexp.MustCompile(`^([a-zA-Z][\w.-]*):(?:[^=\n](.*))?$`)
+
+// gateScript matches a shell script a recipe hands the work to.
+var gateScript = regexp.MustCompile(`((?:scripts|tools|hack)/[\w./-]+\.sh)`)
+
+// reachedFrom returns the targets one target pulls in, directly or through
+// another. A prerequisite and a recipe line that calls make mean the same
+// thing to a reader: this runs too.
+//
+// A recipe that hands the work to a script is followed into it. A project that
+// routes its gates through one file is gated all the same, and reading only
+// the Makefile would report every gate in that file as unreached.
+func (l *Linter) reachedFrom(rules map[string]makeRule, from string) map[string]bool {
+	seen := map[string]bool{}
+	pending := []string{from}
+	for len(pending) > 0 {
+		t := pending[0]
+		pending = pending[1:]
+		if seen[t] {
+			continue
+		}
+		seen[t] = true
+		r, ok := rules[t]
+		if !ok {
+			continue
+		}
+		pending = append(pending, r.prereqs...)
+		for child := range shellMakeCalls(r.recipe) {
+			pending = append(pending, child)
+		}
+		for _, m := range gateScript.FindAllStringSubmatch(r.recipe, -1) {
+			script, ok := l.read(m[1])
+			if !ok {
+				continue
+			}
+			for child := range shellMakeCalls(script) {
+				pending = append(pending, child)
+			}
+		}
+	}
+	return seen
 }
 
 func absent(want []string, have map[string]bool) []string {
