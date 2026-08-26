@@ -32,20 +32,25 @@ By opening a pull request you agree that your contribution ships under the
 One command:
 
 ```bash
-make check
+make ci
 ```
 
-It runs the formatter check, `go vet`, the Go linters, the whole-program dead
-code check, the unit suite and the coverage floor. It then runs all three of
-this project's own linters over this repository. It is the same gate CI runs, so
-a green run here is a green run there.
+That is every gate the CI workflow has, on this machine and in the order the
+workflow takes them, so a green run here is a green run there. `make check`
+is the faster subset to keep beside you while you work, and `make ci` is the
+one that has to pass.
 
-Two of those need tools that are not in the Go distribution:
+It shells out to tools the Go distribution does not carry. Install them
+once:
 
 ```bash
 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.1
 go install golang.org/x/tools/cmd/deadcode@latest
 ```
+
+`golangci-lint` is pinned to the version CI runs, so a release that gains
+checks reaches you when you move the pin rather than on an unrelated pull
+request.
 
 ## Design rules
 

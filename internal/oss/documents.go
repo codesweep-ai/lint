@@ -32,7 +32,10 @@ var (
 		"Commits": regexp.MustCompile(`(?im)^##+\s*.*\bCommits\b`),
 		"Writing": regexp.MustCompile(`(?im)^##+\s*.*\bWriting\b`),
 	}
-	namesTheGate = regexp.MustCompile(`\bmake check\b|\bnpm (run )?check\b|scripts/check`)
+	// The gate a contributor is told to run. `ci` counts as well as `check`:
+	// a project whose wider target mirrors the workflow points its readers at
+	// that one, and naming it is naming the gate.
+	namesTheGate = regexp.MustCompile(`\bmake (?:check|ci)\b|\bnpm (run )?(?:check|ci)\b|scripts/check`)
 	namesTrailer = regexp.MustCompile(`(?i)trailer`)
 
 	// How a change gets in. A document that never says leaves a contributor
