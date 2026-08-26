@@ -80,11 +80,12 @@ oss:
 Then wire it into the one command a contributor already runs:
 
 ```make
-docs: ; cs-lint prose && cs-lint refs
-oss: ; cs-lint oss
+prose:   ; cs-lint prose
+refs:    ; cs-lint refs
+oss:     ; cs-lint oss
 surface: build ; cs-lint surface
 
-check: fmt-check vet lint test docs oss surface
+check: fmt-check vet lint test prose refs oss surface
 ```
 
 ## The four linters

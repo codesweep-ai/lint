@@ -101,5 +101,5 @@ oss:
     "internal/refs/": "the reference rules necessarily contain the shapes they match"
     "internal/surface/": "the interface rules necessarily contain the shapes they match"
 
-  requiredTargets: ["build", "test", "check", "lint", "docs", "oss", "clean"]
+  requiredTargets: ["build", "test", "check", "lint", "prose", "refs", "oss", "clean"]
   expectedTargets: ["help", "install", "uninstall", "fmt", "fmt-check", "vet", "deadcode"]

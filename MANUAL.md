@@ -271,7 +271,7 @@ would let the two halves disagree.
 | `skipPaths` | empty | Path prefix to the reason the scans skip it. |
 | `allow` | empty | Rule identifier to the reason it is waived. |
 | `binaryOK` | common asset types | Extensions a scan may skip as known binary assets. |
-| `requiredTargets` | `build test check docs oss clean` | Task-runner targets that must exist. |
+| `requiredTargets` | `build test check prose refs oss clean` | Task-runner targets that must exist. |
 | `expectedTargets` | `help install uninstall fmt fmt-check vet lint` | The rest of the family's vocabulary. |
 
 Every waiver takes a reason rather than a bare rule identifier, and that reason

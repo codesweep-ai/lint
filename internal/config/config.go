@@ -201,7 +201,7 @@ func Default() *Config {
 			BinaryOK: []string{".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico",
 				".icns", ".woff", ".woff2", ".ttf", ".otf", ".pdf", ".zip",
 				".gz", ".tar", ".mp4", ".mov", ".wasm"},
-			RequiredTargets: []string{"build", "test", "check", "docs", "oss", "clean"},
+			RequiredTargets: []string{"build", "test", "check", "prose", "refs", "oss", "clean"},
 			ExpectedTargets: []string{"help", "install", "uninstall", "fmt",
 				"fmt-check", "vet", "lint"},
 		},

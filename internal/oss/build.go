@@ -28,16 +28,18 @@ var (
 		"pull_request":      regexp.MustCompile(`(?m)^\s{2}pull_request:`),
 		"workflow_dispatch": regexp.MustCompile(`(?m)^\s{2}workflow_dispatch:`),
 	}
-	docsJob       = regexp.MustCompile(`(?m)^\s{2}docs:`)
+	proseJob      = regexp.MustCompile(`(?m)^\s{2}prose:`)
+	refsJob       = regexp.MustCompile(`(?m)^\s{2}refs:`)
 	ossJob        = regexp.MustCompile(`(?m)^\s{2}oss:`)
 	writesRelease = regexp.MustCompile(`contents:\s*write`)
 )
 
-// proseGate and readinessGate are what a recipe may name to reach each linter.
-// The vendored Python script is still recognised, because a repository that
-// has not moved to the binary yet is gated all the same.
+// Each of these is what a recipe may name to reach one linter. The vendored
+// Python script is still recognised, because a repository that has not moved
+// to the binary yet is gated all the same.
 var (
 	proseGate     = []string{"cs-lint prose", "lint-docs"}
+	refsGate      = []string{"cs-lint refs"}
 	readinessGate = []string{"cs-lint oss", "lint-oss"}
 )
 
@@ -205,10 +207,19 @@ var buildRules = []rule{{
 			return []lint.Problem{lint.Skipf("OSS-406", "no workflows")}
 		}
 		var out []lint.Problem
-		hasDocsJob := docsJob.MatchString(bodies) &&
-			(strings.Contains(bodies, "make docs") || containsAny(bodies, proseGate))
-		if !hasDocsJob {
-			out = append(out, lint.Errorf("OSS-406", "no docs job runs the prose linter"))
+		for _, g := range []struct {
+			name    string
+			job     *regexp.Regexp
+			needles []string
+		}{
+			{"prose", proseJob, proseGate},
+			{"refs", refsJob, refsGate},
+		} {
+			if !g.job.MatchString(bodies) ||
+				!(strings.Contains(bodies, "make "+g.name) || containsAny(bodies, g.needles)) {
+				out = append(out, lint.Errorf("OSS-406", "no %s job runs the %s linter",
+					g.name, g.name))
+			}
 		}
 		hasOSSJob := ossJob.MatchString(bodies) &&
 			(strings.Contains(bodies, "make oss") || containsAny(bodies, readinessGate))
@@ -314,9 +325,11 @@ var buildRules = []rule{{
 	},
 }, {
 	id: "OSS-411", severity: lint.Error,
-	title: "The check target reaches both linters",
+	title: "The check target reaches every linter that needs no build",
 	why: "The one command a contributor runs before pushing is the contract between them " +
-		"and CI. A gate it does not reach is one they meet after the fact, in a red build.",
+		"and CI. A gate it does not reach is one they meet after the fact, in a red build. " +
+		"The interface linter is left out because it reads a binary, and not every " +
+		"repository builds one.",
 	check: func(l *Linter) []lint.Problem {
 		body := l.makefile()
 		if body == "" {
@@ -330,7 +343,7 @@ var buildRules = []rule{{
 		for _, g := range []struct {
 			target  string
 			needles []string
-		}{{"docs", proseGate}, {"oss", readinessGate}} {
+		}{{"prose", proseGate}, {"refs", refsGate}, {"oss", readinessGate}} {
 			if !l.reaches(prereqs, recipe, g.target, g.needles) {
 				out = append(out, lint.Errorf("OSS-411", "check does not reach the %s linter", g.target))
 			}

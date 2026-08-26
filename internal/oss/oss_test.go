@@ -235,16 +235,17 @@ func TestActionsArePinned(t *testing.T) {
 	}
 }
 
-func TestCheckMustReachBothLinters(t *testing.T) {
+func TestCheckMustReachEveryLinterThatNeedsNoBuild(t *testing.T) {
 	// A target that hangs off nothing is a target nobody runs.
 	files := map[string]string{"Makefile": "check: fmt-check vet test\n\t@true\n"}
 	got := run(t, "OSS-411", config.OSS{}, files)
-	if len(got) != 2 {
-		t.Errorf("got %d findings, want 2 (docs and oss): %v", len(got), got)
+	if len(got) != 3 {
+		t.Errorf("got %d findings, want 3 (prose, refs and oss): %v", len(got), got)
 	}
-	files["Makefile"] = "check: fmt-check vet test docs oss\n\t@true\ndocs:\n\tcs-lint docs\noss:\n\tcs-lint oss\n"
+	files["Makefile"] = "check: fmt-check vet test prose refs oss\n\t@true\n" +
+		"prose:\n\tcs-lint prose\nrefs:\n\tcs-lint refs\noss:\n\tcs-lint oss\n"
 	if firstError(run(t, "OSS-411", config.OSS{}, files)) != nil {
-		t.Error("a check target that reaches both linters was reported")
+		t.Error("a check target that reaches all three was reported")
 	}
 }
 
@@ -346,21 +347,23 @@ func wellFormed() map[string]string {
 		"Makefile": ".DEFAULT_GOAL := help\nhelp:\n\t@true\nbuild:\n\t@true\ntest:\n\t@true\n" +
 			"install:\n\t@true\nuninstall:\n\t@true\nfmt:\n\t@true\nfmt-check:\n\t@true\n" +
 			"vet:\n\t@true\nlint:\n\tgolangci-lint run\ndeadcode:\n\t@true\n" +
-			"docs:\n\tcs-lint docs\noss:\n\tcs-lint oss\nclean:\n\t@true\n" +
-			"check: fmt-check vet lint deadcode test docs oss\n\t@true\n",
+			"prose:\n\tcs-lint prose\nrefs:\n\tcs-lint refs\noss:\n\tcs-lint oss\n" +
+			"clean:\n\t@true\n" +
+			"check: fmt-check vet lint deadcode test prose refs oss\n\t@true\n",
 		".gitignore":     "# what never enters the tree\n/bin/\n/.env\n",
 		".gitattributes": "* text=auto eol=lf\n",
 		"go.mod":         "module github.com/acme/thing\n\ngo 1.26.0\n",
 		".github/workflows/ci.yml": "name: ci\non:\n  push:\n  pull_request:\n  workflow_dispatch:\n" +
 			"permissions:\n  contents: read\njobs:\n  build:\n    steps:\n" +
 			"      - uses: actions/checkout@v7\n      - run: make check\n" +
-			"  docs:\n    steps:\n      - run: make docs\n" +
+			"  prose:\n    steps:\n      - run: make prose\n" +
+			"  refs:\n    steps:\n      - run: make refs\n" +
 			"  oss:\n    steps:\n      - uses: actions/checkout@v7\n        with:\n" +
 			"          fetch-depth: 0\n      - run: make oss\n",
 		".github/workflows/release.yml": "name: release\non:\n  push:\n    tags: [\"v*\"]\n" +
 			"permissions:\n  contents: write\njobs:\n  release:\n    steps:\n" +
 			"      - uses: actions/checkout@v7\n",
-		".cs-lint.yaml": "docs:\n  glossary: [thing]\n",
+		".cs-lint.yaml": "docs:\n  prose:\n    glossary: [thing]\n",
 	}
 }
 

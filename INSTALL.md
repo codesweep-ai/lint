@@ -172,9 +172,12 @@ per linter, and fold them into the one command a contributor already runs
 before pushing:
 
 ```make
-## docs: check the prose, and the references the documents make
-docs:
+## prose: check how the documents are written
+prose:
 	cs-lint prose
+
+## refs: check that everything the documents point at is there
+refs:
 	cs-lint refs
 
 ## oss: check that this repo is in a shape it can be published in
@@ -185,7 +188,7 @@ oss:
 surface: build
 	cs-lint surface
 
-check: fmt-check vet lint test docs oss surface
+check: fmt-check vet lint test prose refs oss surface
 ```
 
 `prose` and `refs` read the tracked tree and nothing else, so they answer
@@ -197,8 +200,8 @@ matrix. A linter answers in seconds and reports even when the tests are
 failing:
 
 ```yaml
-  docs:
-    name: docs prose and refs
+  prose:
+    name: docs prose
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -207,8 +210,11 @@ failing:
         with:
           go-version-file: go.mod
       - run: go install github.com/codesweep-ai/lint/cmd/cs-lint@latest
-      - run: make docs
+      - run: make prose
 ```
+
+Each linter gets one of its own. `refs` and `oss` are the same job with the
+verb changed, and `surface` adds a build step before it.
 
 The readiness job needs one more thing, because the history rules read the
 history and the default checkout is shallow:

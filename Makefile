@@ -36,7 +36,7 @@ COVERFLAGS  = -covermode=atomic -coverpkg=$(COVERPKG)
 COVER_MIN  ?= 70
 
 .PHONY: help build build-go install uninstall test test-race coverage coverage-check \
-        vet fmt fmt-check check lint deadcode docs oss surface self \
+        vet fmt fmt-check check lint deadcode prose refs oss surface self \
         snapshot release release-check clean
 
 .DEFAULT_GOAL := help
@@ -125,9 +125,12 @@ deadcode:
 	@out=$$(deadcode -test ./...); \
 	if [ -n "$$out" ]; then echo "$$out"; exit 1; fi
 
-## docs: check this repository's prose and the references in it
-docs: build
+## prose: check how this repository's documents are written
+prose: build
 	$(BIN) prose
+
+## refs: check that everything the documents point at is there
+refs: build
 	$(BIN) refs
 
 ## oss: check that this repository can be published
@@ -139,10 +142,10 @@ surface: build
 	$(BIN) surface
 
 ## self: run every linter over this repository
-self: docs oss surface
+self: prose refs oss surface
 
 ## check: the one command before pushing
-check: fmt-check vet lint deadcode test coverage-check docs oss surface
+check: fmt-check vet lint deadcode test coverage-check prose refs oss surface
 
 ## snapshot: build every release target without publishing
 snapshot:
