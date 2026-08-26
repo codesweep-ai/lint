@@ -35,7 +35,7 @@ COVERFLAGS  = -covermode=atomic -coverpkg=$(COVERPKG)
 # make a run green.
 COVER_MIN  ?= 70
 
-.PHONY: help build build-go install uninstall test test-race coverage coverage-check \
+.PHONY: help build build-go install uninstall test test-race coverage coverage-check ci \
         vet fmt fmt-check check lint deadcode prose refs oss surface self \
         snapshot release release-check clean
 
@@ -146,6 +146,18 @@ self: prose refs oss surface
 
 ## check: the one command before pushing
 check: fmt-check vet lint deadcode test coverage-check prose refs oss surface
+
+## ci: every gate the CI workflow runs, on this machine
+##
+## One Linux leg of .github/workflows/ci.yml, in the order CI runs it, so a
+## red build is something you can see before you push rather than after. What
+## it cannot reproduce it names on the way out: a run that skipped a gate must
+## never read as a run that ran them all.
+ci:
+	@$(MAKE) --no-print-directory check
+	@$(MAKE) --no-print-directory build
+	@$(MAKE) --no-print-directory release-check
+	@printf '\nci: every gate ran. Not reproduced here: build-test on macOS.\n'
 
 ## snapshot: build every release target without publishing
 snapshot:

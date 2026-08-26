@@ -102,4 +102,4 @@ oss:
     "internal/surface/": "the interface rules necessarily contain the shapes they match"
 
   requiredTargets: ["build", "test", "check", "lint", "prose", "refs", "oss", "clean"]
-  expectedTargets: ["help", "install", "uninstall", "fmt", "fmt-check", "vet", "deadcode"]
+  expectedTargets: ["help", "install", "uninstall", "fmt", "fmt-check", "vet", "deadcode", "ci"]
