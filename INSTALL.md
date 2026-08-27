@@ -95,7 +95,7 @@ machine without them still gets a useful run.
 |---|---|---|
 | `git` | the leak scan, and every history rule | those rules skip |
 | `goreleaser` | the release-manifest check | that rule skips |
-| `actionlint` | the workflow check | that rule skips |
+| `actionlint` | the workflow check | that rule skips, unless the repository pins actionlint as a Go tool, which cs-lint then runs |
 | `gh` | `oss --online` | those rules skip |
 | `cs-ledger` | the ledger rules, in a repository that keeps one | those rules skip |
 | `cosign` | verifying a release you downloaded | you cannot check the signature |
@@ -121,6 +121,9 @@ On macOS, run:
 ```bash
 brew install git goreleaser actionlint gh
 ```
+
+A repository that pins `actionlint` as a Go tool in its own `go.mod` needs no
+copy on the PATH: cs-lint runs the pin it finds there.
 
 ## 3. First-run setup
 

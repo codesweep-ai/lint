@@ -1187,6 +1187,41 @@ func TestTheCITargetMirrorsTheWorkflow(t *testing.T) {
 	}
 }
 
+// A repository whose workflows this rule reads has to lint them itself. Only
+// the gate half is asserted here: the run half needs actionlint, and this test
+// must say the same thing on a machine without it.
+func TestTheGateLintsTheWorkflows(t *testing.T) {
+	const wf = "jobs:\n  a:\n    steps:\n      - run: make check\n"
+	const missing = "neither check nor ci reaches an actionlint target"
+
+	has := func(problems []lint.Problem) bool {
+		for _, p := range problems {
+			if strings.Contains(p.Message, missing) {
+				return true
+			}
+		}
+		return false
+	}
+
+	// A Makefile with no actionlint anywhere: the workflows are ungated.
+	got := run(t, "OSS-415", config.OSS{}, map[string]string{
+		"Makefile": "check:\n\t@true\n", ".github/workflows/ci.yml": wf})
+	if !has(got) {
+		t.Errorf("got %v, want the ungated workflows reported", got)
+	}
+
+	// Reached from check through a prerequisite, and from ci through make.
+	for _, mk := range []string{
+		"actionlint:\n\t@true\ncheck: actionlint\n\t@true\n",
+		"actionlint:\n\t@true\nci:\n\t$(MAKE) actionlint\n",
+	} {
+		if has(run(t, "OSS-415", config.OSS{}, map[string]string{
+			"Makefile": mk, ".github/workflows/ci.yml": wf})) {
+			t.Errorf("a gate that reaches actionlint was reported: %s", mk)
+		}
+	}
+}
+
 // Three repositories wrote "Go 1.26 or newer" and went on claiming a version
 // they had moved off, because the pattern read only the `+` spelling.
 func TestAStatedGoFloorIsReadHoweverItIsWorded(t *testing.T) {

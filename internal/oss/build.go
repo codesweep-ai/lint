@@ -37,6 +37,9 @@ var (
 	writesRelease = regexp.MustCompile(`contents:\s*write`)
 )
 
+// The tool directive a repository writes when it pins actionlint in go.mod.
+const actionlintTool = "github.com/rhysd/actionlint/cmd/actionlint"
+
 // Each of these is what a recipe may name to reach one linter. The vendored
 // Python script is still recognised, because a repository that has not moved
 // to the binary yet is gated all the same.
@@ -444,14 +447,32 @@ var buildRules = []rule{{
 		if len(l.workflows()) == 0 {
 			return []lint.Problem{lint.Skipf("OSS-415", "no workflows")}
 		}
-		if !lint.Have("actionlint") {
-			return []lint.Problem{lint.Skipf("OSS-415", "actionlint is not installed")}
+		var out []lint.Problem
+		// The gate itself, before the run: a repository this rule passes today
+		// and nobody's build checks is one workflow edit from failing on the
+		// forge with nothing to read.
+		if body := l.makefile(); body != "" {
+			rules := makeRules(body)
+			if !l.reachedFrom(rules, "check")["actionlint"] &&
+				!l.reachedFrom(rules, "ci")["actionlint"] {
+				out = append(out, lint.Warnf("OSS-415",
+					"neither check nor ci reaches an actionlint target"))
+			}
 		}
-		out, ok := l.repo.Run("actionlint")
-		if !ok {
-			return []lint.Problem{lint.Warnf("OSS-415", "actionlint reports problems: %s", firstLine(out))}
+		// A repository that pins actionlint as a Go tool is asked to run its
+		// own pin, so this rule reports the same thing its gate does and needs
+		// nothing on the PATH. Everywhere else, the PATH copy or a skip.
+		name, args := "actionlint", []string(nil)
+		if mod, _ := l.read("go.mod"); strings.Contains(mod, actionlintTool) {
+			name, args = "go", []string{"tool", "actionlint"}
+		} else if !lint.Have("actionlint") {
+			return append(out, lint.Skipf("OSS-415", "actionlint is not installed"))
 		}
-		return nil
+		if report, ok := l.repo.Run(name, args...); !ok {
+			out = append(out, lint.Warnf("OSS-415",
+				"actionlint reports problems: %s", firstLine(report)))
+		}
+		return out
 	},
 }, {
 	id: "OSS-416", severity: lint.Error,
