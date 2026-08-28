@@ -5,25 +5,30 @@ name: npm
 # one the binary reports about itself, so each commit publishes once and no two
 # publishes collide.
 #
-# Run by hand for now. The intent is to run it on every push to main once it has
-# been watched a few times, which is why it is a workflow of its own rather than
-# a job in release.yml: a workflow that will one day run on every push should
-# not be able to reach the release machinery at all, and the permissions below
-# are what make that true rather than merely intended.
+# It is a workflow of its own rather than a job in release.yml because it runs on
+# every push: something firing that often should not be able to reach the release
+# machinery at all, and the permissions below are what make that true rather than
+# merely intended.
+#
+# A push carries no inputs, so dry_run is unset and falsy there and the publish
+# is real. The default is false so that a dispatch does the same thing a push
+# does, and asks for a dry run only when told to.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       dry_run:
         description: Show what would publish, without publishing it
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: read # this workflow reads the repository and writes nothing to it
   id-token: write # provenance, minted from the run rather than from a key
 
-# One publish at a time, and a superseded one is dropped. It costs nothing while
-# this is dispatched by hand, and is what the push trigger will need.
+# One publish at a time, and a superseded one is dropped: two pushes in a row
+# would otherwise race, and the older is of no interest by the time it lands.
 concurrency:
   group: npm-${{ github.ref }}
   cancel-in-progress: true

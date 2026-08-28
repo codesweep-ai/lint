@@ -190,10 +190,11 @@ Four variables belong to this packaging rather than to the tool, which is why
 
 ### Dev builds
 
-The `npm` workflow publishes one commit to the `dev` channel, cutting no tag and
-making no release. Run it from the Actions tab, or with `gh workflow run
-npm.yml`. It defaults to a dry run, and it stores no credential: each package
-names the workflow as a trusted publisher.
+The `npm` workflow publishes every commit on main to the `dev` channel, cutting
+no tag and making no release. It stores no credential: each package names the
+workflow as a trusted publisher. To publish one commit by hand, or to see what
+a publish would send without sending it, run it from the Actions tab or with
+`gh workflow run npm.yml`.
 
 Such a build takes its version from the binary, which is the commit's timestamp
 and its hash. A caret range never resolves to a prerelease, so one reaches
