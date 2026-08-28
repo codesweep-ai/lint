@@ -61,8 +61,11 @@ jobs:
       - name: package
         run: node npm/build.mjs --dev
 
+      # No token. Each package names this workflow as a trusted publisher, so npm
+      # takes the run's own OIDC identity and mints a credential that lives for
+      # the length of the publish. A stored token would be a standing key to the
+      # registry, and npm is withdrawing the ability of one to publish at all.
       - name: publish
         run: ./npm/publish.sh ${{ inputs.dry_run && '--dry-run' || '' }}
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           CS_LINT_NPM_TAG: dev

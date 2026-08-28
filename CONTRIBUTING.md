@@ -197,6 +197,11 @@ by hand from the Actions tab, or with `gh workflow run npm.yml`. It defaults to
 a dry run, because a publish cannot be taken back. No tag is cut and no release
 is made.
 
+It stores no credential. Each package names this workflow as a trusted
+publisher, so npm takes the run's own identity and mints a credential that
+lives for the length of the publish. That is also what signs the provenance
+statement a published version carries.
+
 It is a workflow of its own rather than a job in `release`, because the intent
 is to run it on every push to main. Something that fires that often has no
 business reaching the release machinery, and its `contents: read` permission is
