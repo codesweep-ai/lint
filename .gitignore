@@ -6,6 +6,10 @@
 /bin/
 /dist/
 
+# The registry this machine runs to try the packages out: verdaccio itself, its
+# storage, and the throwaway credentials for it.
+/npm/.local-registry/
+
 # The npm packages, which are generated from /dist/ at release time. The five
 # package.json files and the four binaries in them are all derived, and the
 # binaries would put 17MB of build output in the history.

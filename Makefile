@@ -43,7 +43,7 @@ COVER_MIN  ?= 70
 
 .PHONY: help build build-go install uninstall test test-race coverage coverage-check ci \
         vet fmt fmt-check check lint deadcode actionlint prose refs oss surface self \
-        snapshot release release-check clean npm-build npm-snapshot npm-publish
+        snapshot release release-check clean npm-build npm-snapshot npm-local npm-publish
 
 .DEFAULT_GOAL := help
 
@@ -272,6 +272,10 @@ npm-snapshot:
 	$(GORELEASER) build --snapshot --clean --skip=before
 	@CS_LINT_NPM_VERSION='$(NPM_SNAPSHOT_VERSION)' node npm/build.mjs
 	@./npm/publish.sh --dry-run
+
+## npm-local: publish to a registry on this machine, and print where to browse it
+npm-local:
+	./npm/local-registry.sh
 
 ## npm-publish: publish npm/dist to the registry (platform packages first)
 npm-publish:

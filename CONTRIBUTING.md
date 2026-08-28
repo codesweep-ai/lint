@@ -188,6 +188,7 @@ Two variables belong to this packaging rather than to the tool, which is why
 | `CS_LINT_BINARY` | Overrides the binary the npm wrapper runs, so the packaging can be exercised against a local build rather than a published one. |
 | `CS_LINT_NPM_VERSION` | Names the version the generated packages carry. A tagged release supplies its own; a snapshot has none that npm will accept. |
 | `CS_LINT_NPM_TAG` | The channel a prerelease is published to, `next` unless it says otherwise. The dev builds use `dev`. |
+| `CS_LINT_REGISTRY_PORT` | The port the registry on this machine listens on, 4873 unless it says otherwise. |
 
 ### Dev builds
 
@@ -203,6 +204,23 @@ nobody gets one of these without asking:
 ```bash
 npm install --save-dev @codesweep-ai/cs-lint@dev
 ```
+
+### Trying the packages before publishing them
+
+Installing a tarball by path skips the resolution that decides which of the
+four platform packages a machine downloads, which is the part most worth
+testing. `make npm-local` runs a registry on this machine instead, publishes to
+it, and prints the address to browse:
+
+```bash
+make npm-local                 # build, publish, print the URL
+npm/local-registry.sh stop     # stop it again
+```
+
+It replaces the version it published last time, so it can be run after every
+change. It reaches no registry but the one it started: the credentials are a
+throwaway token under `npm/.local-registry/`, which nothing outside that
+directory reads.
 
 Go marks a binary built from a modified tree with `+dirty`, which npm accepts
 and then discards. That would publish the dirty build under the clean commit's
