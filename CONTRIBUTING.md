@@ -192,8 +192,15 @@ Two variables belong to this packaging rather than to the tool, which is why
 
 ### Dev builds
 
-The `release` workflow, run by hand, publishes a build of whatever commit it
-runs on to the `dev` channel. `node npm/build.mjs --dev` versions it as the
+The `npm` workflow publishes a build of one commit to the `dev` channel. Run it
+by hand from the Actions tab, or with `gh workflow run npm.yml`. It defaults to
+a dry run, because a publish cannot be taken back. No tag is cut and no release
+is made.
+
+It is a workflow of its own rather than a job in `release`, because the intent
+is to run it on every push to main. Something that fires that often has no
+business reaching the release machinery, and its `contents: read` permission is
+what makes that true. `node npm/build.mjs --dev` versions it as the
 binary versions itself, which is Go's pseudo-version: the commit's timestamp
 and its hash. So the package on the registry and the binary inside it answer
 the same string, and no tag is cut.

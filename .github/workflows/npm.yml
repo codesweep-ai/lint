@@ -1,0 +1,68 @@
+name: npm
+
+# Publish a build of one commit to npm. Nothing about it is a release: no tag is
+# cut, no GitHub release is made, and `latest` never moves. The version is the
+# one the binary reports about itself, so each commit publishes once and no two
+# publishes collide.
+#
+# Run by hand for now. The intent is to run it on every push to main once it has
+# been watched a few times, which is why it is a workflow of its own rather than
+# a job in release.yml: a workflow that will one day run on every push should
+# not be able to reach the release machinery at all, and the permissions below
+# are what make that true rather than merely intended.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Show what would publish, without publishing it
+        type: boolean
+        default: true
+
+permissions:
+  contents: read # this workflow reads the repository and writes nothing to it
+  id-token: write # provenance, minted from the run rather than from a key
+
+# One publish at a time, and a superseded one is dropped. It costs nothing while
+# this is dispatched by hand, and is what the push trigger will need.
+concurrency:
+  group: npm-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: publish a dev build
+    # A cloud-hosted runner, which provenance requires.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the version is the commit, so the history has to be here
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          registry-url: https://registry.npmjs.org
+
+      # Every platform, because the wrapper depends on all four and a partial
+      # set publishes a package that fails at run time on whatever is missing.
+      # The manifest's before hooks vet and test on the way, so a commit that
+      # does not build is never published.
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2"
+          args: build --snapshot --clean
+
+      - name: package
+        run: node npm/build.mjs --dev
+
+      - name: publish
+        run: ./npm/publish.sh ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          CS_LINT_NPM_TAG: dev
