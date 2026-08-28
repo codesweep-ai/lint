@@ -18,7 +18,7 @@ gets?|goes|comes?|runs?|sends?|reads?|writes?|records?|replays?|matches|
 means?|needs?|names?|shows?|says?|calls?|called|tells?|lets?|leaves?|puts?|
 adds?|drops?|
 refuses?|reports?|carries|carry|costs?|works?|fails?|exists?|belongs?|
-applies|apply|covers?|happens?|arrives?|appears?|starts?|stops?|waits?|wants?|uses?|
+applies|apply|cover(?:s|ed)?|happens?|arrives?|appears?|starts?|stops?|waits?|wants?|uses?|
 sits?|lives?|turns?|appends?|aligns?|differs?|blanks?|restores?|proposes?|
 checks?|answers?|asks?|ships?|gates?|grab|see|verify|compares?|streams?|
 beats?|part|updates?|prints?|install|build|produces?|requires?|expects?|
@@ -34,10 +34,11 @@ proxy|consults?|negotiates?|matched|matching|selects?|introduces?|walks?|
 reaches?|stays?|target|resolves?|state|say|note|fold|split|number|cut|
 delete|links?|output|discovers?|produced|caught|moves?|repoint|fix|becomes|
 measure|generate|capture|paste|feed|check|run|add|show|list|name|bury|
-document|confirm|record|report|prove|extend|tune|wire|ship|drop|keep|sets?|
+documents?|confirm|record|report|prove|extend|tune|wire|ship|drop|keep|sets?|
 bumps?|catches|catch|edits?|copies|copy|write|read|pass|tr(?:y|ies|ied)|editing|
 pointing|running|recording|replaying|calling|adding|search|classify|reorder|
 imports?|invalidates?|renders?|validates?|iterates?|quote|reproduce|rewrite|matters?|
+welcomes?|fills?|sizes?|declares?|computes?|maps?|opt|exceeds?|derives?|receives?|
 mint|land|share|scrolls?|handles?|assert|drives?|exercise|push|comments?|
 refreshes?|scaffolds?|promotes?|named|reuse|render|refresh|validate|mints?|
 accretes?|files?|renumbers?|schedules?|scheduled|claims?|claimed|satisfies|
