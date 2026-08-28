@@ -76,7 +76,7 @@ oss:
   # decision about every clone somebody else made. A finding about a commit no
   # remote has stays an error, because an amend still reaches it. Flip this in
   # the same commit that makes the repository public.
-  published: false
+  published: true
 
   # This repository ships a binary, so it carries the whole set.
   docSet:
