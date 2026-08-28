@@ -156,6 +156,59 @@ The rule's `why` string is documentation rather than a comment, and `--explain`
 prints it. It is what a reader meets when they want to know whether a rule is
 right, rather than only how to silence it.
 
+## Publishing to npm
+
+cs-lint is a Go binary. A project with no Go toolchain has no file in which to
+pin it where a reviewer sees the version change. For a JavaScript project that
+file is `package.json`.
+
+So every release is published to npm as well. Five packages go out: four carry
+the binary, one per platform goreleaser builds. The fifth is the wrapper, which
+depends on all four optionally and picks the right one at run time.
+
+Only the wrapper is written by hand, under `npm/cs-lint/`. The other four are
+generated from goreleaser's output, and nothing under `npm/dist/` is committed.
+
+```bash
+make npm-snapshot          # build every target, package it, and show what would publish
+make npm-build             # package whatever dist/ already holds
+make npm-publish           # platform packages first, then the wrapper
+```
+
+The ordering in `npm/publish.sh` is not a preference. The wrapper is the name
+people install, and it depends on packages that must already exist when it
+does. Publish it first and every install between the two commands resolves a
+binary the registry does not have.
+
+Two variables belong to this packaging rather than to the tool, which is why
+[`MANUAL.md`](MANUAL.md) does not carry them:
+
+| Variable | Effect |
+|---|---|
+| `CS_LINT_BINARY` | Overrides the binary the npm wrapper runs, so the packaging can be exercised against a local build rather than a published one. |
+| `CS_LINT_NPM_VERSION` | Names the version the generated packages carry. A tagged release supplies its own; a snapshot has none that npm will accept. |
+| `CS_LINT_NPM_TAG` | The channel a prerelease is published to, `next` unless it says otherwise. The dev builds use `dev`. |
+
+### Dev builds
+
+The `release` workflow, run by hand, publishes a build of whatever commit it
+runs on to the `dev` channel. `node npm/build.mjs --dev` versions it as the
+binary versions itself, which is Go's pseudo-version: the commit's timestamp
+and its hash. So the package on the registry and the binary inside it answer
+the same string, and no tag is cut.
+
+A caret range never resolves to a prerelease, so `latest` does not move and
+nobody gets one of these without asking:
+
+```bash
+npm install --save-dev @codesweep-ai/cs-lint@dev
+```
+
+Go marks a binary built from a modified tree with `+dirty`, which npm accepts
+and then discards. That would publish the dirty build under the clean commit's
+version, so the packaging rewrites it to `-dirty`, the way cs-sandbox does for
+its image tags. A release never carries one, so the two cannot collide.
+
 ## Adding a rule
 
 1. Decide which linter it belongs to, and give it the next identifier in that

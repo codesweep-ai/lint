@@ -1,0 +1,50 @@
+{
+  "name": "@codesweep-ai/cs-lint",
+  "version": "0.0.0",
+  "description": "Four linters over one repository: how its documents are written, whether every reference resolves, whether the documented interface is the real one, and what a published repository owes a reader.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codesweep-ai/lint.git",
+    "directory": "npm/cs-lint"
+  },
+  "homepage": "https://github.com/codesweep-ai/lint#readme",
+  "bugs": {
+    "url": "https://github.com/codesweep-ai/lint/issues"
+  },
+  "keywords": [
+    "lint",
+    "linter",
+    "documentation",
+    "prose",
+    "open-source",
+    "ci"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "cs-lint": "bin/cs-lint.mjs"
+  },
+  "exports": {
+    ".": "./index.mjs",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin",
+    "index.mjs",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "optionalDependencies": {
+    "@codesweep-ai/cs-lint-darwin-arm64": "0.0.0",
+    "@codesweep-ai/cs-lint-darwin-x64": "0.0.0",
+    "@codesweep-ai/cs-lint-linux-arm64": "0.0.0",
+    "@codesweep-ai/cs-lint-linux-x64": "0.0.0"
+  }
+}

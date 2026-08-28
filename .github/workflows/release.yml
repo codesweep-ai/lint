@@ -3,7 +3,15 @@ name: release
 on:
   push:
     tags: ["v*"]
+  # Dispatch publishes a dev build of whatever commit it runs on. It defaults to
+  # a dry run, because a publish cannot be taken back: npm refuses to reuse a
+  # version even after an unpublish.
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Show what would publish, without publishing it
+        type: boolean
+        default: true
 
 permissions:
   contents: write # create the release
@@ -12,6 +20,9 @@ permissions:
 jobs:
   release:
     name: release
+    # Only a tag builds a release. `goreleaser release` has no version to cut
+    # without one, so a dispatch would otherwise start a job that cannot finish.
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -35,3 +46,45 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # A dev build of one commit, published to the `dev` channel under the version
+  # the binary reports about itself: Go's pseudo-version, which is the commit's
+  # timestamp and hash. No tag is cut and no release is made, so this can run as
+  # often as it is wanted, and `latest` never moves. A prerelease version is
+  # invisible to a caret range, so nobody gets one without asking for it.
+  npm-dev:
+    name: npm dev build
+    if: github.event_name == 'workflow_dispatch'
+    # A cloud-hosted runner, which provenance requires.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the version is the commit, so the history has to be here
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          registry-url: https://registry.npmjs.org
+
+      # Every platform, because the wrapper depends on all four and a partial
+      # set publishes a package that fails at run time on whatever is missing.
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2"
+          args: build --snapshot --clean
+
+      - name: package
+        run: node npm/build.mjs --dev
+
+      - name: publish
+        run: ./npm/publish.sh ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          CS_LINT_NPM_TAG: dev

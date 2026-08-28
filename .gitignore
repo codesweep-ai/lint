@@ -6,6 +6,11 @@
 /bin/
 /dist/
 
+# The npm packages, which are generated from /dist/ at release time. The five
+# package.json files and the four binaries in them are all derived, and the
+# binaries would put 17MB of build output in the history.
+/npm/dist/
+
 # Coverage, which is measured on every test run and is a fact about one run.
 /.coverage/
 /coverage.out

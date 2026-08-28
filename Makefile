@@ -43,7 +43,7 @@ COVER_MIN  ?= 70
 
 .PHONY: help build build-go install uninstall test test-race coverage coverage-check ci \
         vet fmt fmt-check check lint deadcode actionlint prose refs oss surface self \
-        snapshot release release-check clean
+        snapshot release release-check clean npm-build npm-snapshot npm-publish
 
 .DEFAULT_GOAL := help
 
@@ -246,6 +246,37 @@ release-check:
 release:
 	$(GORELEASER) release --clean
 
+# The npm distribution. cs-lint is a Go binary, and a project with no Go
+# toolchain has no way to pin it in a file its reviewers read. npm is that file
+# for a JavaScript project, so the release binaries are also published as five
+# packages: one per platform, plus the wrapper that picks between them.
+# npm/build.mjs generates all five from goreleaser's output; nothing under
+# npm/dist is committed.
+#
+# The snapshot version is a placeholder, because npm refuses a version that is
+# not semver and goreleaser's snapshot name is a commit description.
+NPM_SNAPSHOT_VERSION ?= 0.0.0-snapshot.0
+
+## npm-build: package the binaries in dist/ as npm packages, into npm/dist
+npm-build:
+	node npm/build.mjs
+
+## npm-snapshot: build every target, package it for npm, and show what would publish
+##
+## `goreleaser build` rather than the `snapshot` target, because the npm
+## packages are made of binaries and nothing else. The release pipeline also
+## archives, catalogues and signs, and its SBOM step needs cyclonedx-gomod on
+## the PATH: depending on it would make a laptop without that tool unable to
+## check its own packaging.
+npm-snapshot:
+	$(GORELEASER) build --snapshot --clean --skip=before
+	@CS_LINT_NPM_VERSION='$(NPM_SNAPSHOT_VERSION)' node npm/build.mjs
+	@./npm/publish.sh --dry-run
+
+## npm-publish: publish npm/dist to the registry (platform packages first)
+npm-publish:
+	./npm/publish.sh
+
 ## clean: remove build output and coverage data
 clean:
-	rm -rf bin dist $(COVERDIR)
+	rm -rf bin dist npm/dist $(COVERDIR)
