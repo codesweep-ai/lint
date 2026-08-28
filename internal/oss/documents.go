@@ -323,14 +323,16 @@ var documentRules = []rule{{
 	id: "OSS-209", severity: lint.Warn,
 	title: "The release archive ships the documents",
 	why: "Someone who downloads the release and never visits the repository has only " +
-		"what the archive carries.",
+		"what the archive carries. LICENSE and NOTICE are not documentation among the " +
+		"rest: Apache 2.0 sections 4(a) and 4(d) oblige every redistributor to carry " +
+		"them, and an archive is a redistribution.",
 	check: func(l *Linter) []lint.Problem {
 		body, ok := l.goreleaser()
 		if !ok {
 			return []lint.Problem{lint.Skipf("OSS-209", "no goreleaser manifest")}
 		}
 		var missing []string
-		for _, d := range append(l.allDocs(), "LICENSE") {
+		for _, d := range append(l.allDocs(), "LICENSE", "NOTICE") {
 			if d != "AGENTS.md" && !strings.Contains(body, d) {
 				missing = append(missing, d)
 			}

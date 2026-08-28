@@ -21,6 +21,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	lintdoc "github.com/codesweep-ai/lint"
 	"github.com/codesweep-ai/lint/internal/config"
 	"github.com/codesweep-ai/lint/internal/lint"
 )
@@ -137,10 +138,32 @@ func (l *Linter) scannable(visit func(path, body string)) {
 func (l *Linter) nothingToScan() bool { return len(l.order) == 0 }
 
 func (l *Linter) skipped(path string) bool {
+	if l.isReference(path) {
+		return true
+	}
 	for prefix := range l.cfg.SkipPaths {
 		if path == prefix || strings.HasPrefix(path, prefix) {
 			return true
 		}
+	}
+	return false
+}
+
+// isReference reports whether a path is a governance file the tool carries the
+// text of, holding exactly that text.
+//
+// Such a file cannot leak anything the reference does not already carry, and
+// the reference is reviewed once for the whole family rather than per
+// repository. Without this the rule set contradicts itself: OSS-109 requires a
+// code of conduct that names a reporting address, and OSS-303 then reports that
+// address as a leak. The exemption is conditional on the exact text, so a file
+// with anything added to it is scanned like any other.
+func (l *Linter) isReference(path string) bool {
+	switch path {
+	case "CODE_OF_CONDUCT.md":
+		return l.text[path] == lintdoc.CodeOfConductMD
+	case "LICENSE":
+		return l.text[path] == lintdoc.LicenceText
 	}
 	return false
 }

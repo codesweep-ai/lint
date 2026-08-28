@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	lintdoc "github.com/codesweep-ai/lint"
 	"github.com/codesweep-ai/lint/internal/config"
 	"github.com/codesweep-ai/lint/internal/lint"
 	"github.com/codesweep-ai/lint/internal/lint/linttest"
@@ -55,20 +56,146 @@ func TestLicenceRules(t *testing.T) {
 			t.Error("an SPDX line passed as the full text")
 		}
 	})
-	t.Run("the appendix placeholders", func(t *testing.T) {
-		got := run(t, "OSS-103", config.OSS{}, map[string]string{
-			"LICENSE": "Copyright [yyyy] [name of copyright owner]\n"})
-		if firstError(got) == nil {
-			t.Error("a licence granting rights on behalf of nobody passed")
-		}
-	})
-	t.Run("a filled-in copyright line", func(t *testing.T) {
-		got := run(t, "OSS-103", config.OSS{}, map[string]string{
-			"LICENSE": "Copyright 2026 Codesweep\n"})
+}
+
+func TestTheLicenceIsTheCanonicalTextToTheByte(t *testing.T) {
+	t.Run("the text the tool carries", func(t *testing.T) {
+		got := run(t, "OSS-107", config.OSS{}, map[string]string{
+			"LICENSE": lintdoc.LicenceText})
 		if firstError(got) != nil {
-			t.Errorf("a real copyright line was reported: %v", got)
+			t.Errorf("the canonical Apache 2.0 text was reported: %v", got)
 		}
 	})
+	t.Run("a filled-in appendix is a modification", func(t *testing.T) {
+		// The appendix is instructions for applying the licence to a source
+		// file, not a blank the project fills in. Filling it in edits the
+		// licence, and the copyright holder belongs in NOTICE.
+		edited := strings.Replace(lintdoc.LicenceText,
+			"Copyright [yyyy] [name of copyright owner]",
+			"Copyright 2026 CodeSweep Inc.", 1)
+		got := run(t, "OSS-107", config.OSS{}, map[string]string{"LICENSE": edited})
+		p := firstError(got)
+		if p == nil {
+			t.Fatalf("an edited licence passed: %v", got)
+		}
+		if !strings.Contains(p.Where, "LICENSE:") {
+			t.Errorf("the finding does not name a line: %q", p.Where)
+		}
+	})
+	t.Run("a word changed in the grant", func(t *testing.T) {
+		edited := strings.Replace(lintdoc.LicenceText, "perpetual", "revocable", 1)
+		if firstError(run(t, "OSS-107", config.OSS{},
+			map[string]string{"LICENSE": edited})) == nil {
+			t.Error("a licence whose grant was edited passed")
+		}
+	})
+	t.Run("a missing final newline is named as such", func(t *testing.T) {
+		got := run(t, "OSS-107", config.OSS{}, map[string]string{
+			"LICENSE": strings.TrimSuffix(lintdoc.LicenceText, "\n")})
+		p := firstError(got)
+		if p == nil {
+			t.Fatal("a truncated licence passed")
+		}
+		if !strings.Contains(p.Message, "how the file ends") {
+			t.Errorf("an invisible difference was reported as a line: %q", p.Message)
+		}
+	})
+	t.Run("a file that is not Apache at all defers to OSS-102", func(t *testing.T) {
+		// Two errors for one broken file leaves a reader fixing it twice.
+		got := run(t, "OSS-107", config.OSS{}, map[string]string{"LICENSE": "MIT\n"})
+		if firstError(got) != nil {
+			t.Errorf("OSS-107 reported a file that is OSS-102's finding: %v", got)
+		}
+	})
+}
+
+// notice builds a NOTICE in the shape OSS-108 wants, for a project named.
+func notice(name string) string {
+	return name + "\n" + referenceLine(lintdoc.NoticeText, 2) + "\n"
+}
+
+func TestNoticeIsTwoLinesAndNothingElse(t *testing.T) {
+	for _, tc := range []struct{ name, body, want string }{
+		{"missing", "", "no NOTICE"},
+		{"a third line", notice("Codesweep Thing") + "This product includes software.\n",
+			"is 3 lines"},
+		{"another year", "Codesweep Thing\nCopyright 2019 CodeSweep Inc.\n", "line 2"},
+		{"another holder", "Codesweep Thing\nCopyright 2026 Someone Else\n", "line 2"},
+		{"a project outside the family", notice("Widget"), "starts with"},
+		{"no final newline", strings.TrimSuffix(notice("Codesweep Thing"), "\n"),
+			"does not end with a newline"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			files := map[string]string{"README.md": "# x\n"}
+			if tc.body != "" {
+				files["NOTICE"] = tc.body
+			}
+			got := run(t, "OSS-108", config.OSS{}, files)
+			p := firstError(got)
+			if p == nil {
+				t.Fatalf("%s passed", tc.name)
+			}
+			if !strings.Contains(p.Message, tc.want) {
+				t.Errorf("got %q, want it to mention %q", p.Message, tc.want)
+			}
+		})
+	}
+	t.Run("the shape the family carries", func(t *testing.T) {
+		got := run(t, "OSS-108", config.OSS{},
+			map[string]string{"NOTICE": notice("Codesweep Thing")})
+		if firstError(got) != nil {
+			t.Errorf("a well-formed NOTICE was reported: %v", got)
+		}
+	})
+}
+
+func TestTheCodeOfConductIsTheCanonicalText(t *testing.T) {
+	t.Run("the text the tool carries", func(t *testing.T) {
+		got := run(t, "OSS-109", config.OSS{}, map[string]string{
+			"CODE_OF_CONDUCT.md": lintdoc.CodeOfConductMD})
+		if firstError(got) != nil {
+			t.Errorf("the canonical Contributor Covenant text was reported: %v", got)
+		}
+	})
+	t.Run("missing", func(t *testing.T) {
+		if firstError(run(t, "OSS-109", config.OSS{},
+			map[string]string{"README.md": "# x\n"})) == nil {
+			t.Error("a repository with no code of conduct passed")
+		}
+	})
+	t.Run("a paraphrase that drops the attribution", func(t *testing.T) {
+		// What a shortened copy loses is the attribution the licence requires,
+		// the enforcement ladder, and the reporting address.
+		short := "# Code of Conduct\n\nBe respectful. Report concerns to the maintainers.\n"
+		if firstError(run(t, "OSS-109", config.OSS{},
+			map[string]string{"CODE_OF_CONDUCT.md": short})) == nil {
+			t.Error("a paraphrase passed as the canonical text")
+		}
+	})
+	t.Run("a changed reporting address", func(t *testing.T) {
+		edited := strings.Replace(lintdoc.CodeOfConductMD,
+			"conduct@codesweep.ai", "someone@example.com", 1)
+		if firstError(run(t, "OSS-109", config.OSS{},
+			map[string]string{"CODE_OF_CONDUCT.md": edited})) == nil {
+			t.Error("a code of conduct pointing somewhere else passed")
+		}
+	})
+}
+
+func TestTheCodeOfConductIsNotScannedAsALeak(t *testing.T) {
+	// OSS-109 requires a code of conduct that names a reporting address, and
+	// the leak scan reports mail addresses. Without the exemption the rule set
+	// contradicts itself and no repository can satisfy both.
+	files := map[string]string{"CODE_OF_CONDUCT.md": lintdoc.CodeOfConductMD}
+	if got := run(t, "OSS-303", config.OSS{}, files); firstError(got) != nil {
+		t.Errorf("the code of conduct's own address was reported as a leak: %v", got)
+	}
+	// The exemption is conditional on the exact text: anything added is scanned.
+	files["CODE_OF_CONDUCT.md"] = lintdoc.CodeOfConductMD +
+		"\nQuestions go to ada@realcompany.co.uk.\n"
+	if got := run(t, "OSS-303", config.OSS{}, files); firstError(got) == nil {
+		t.Error("an address appended to the code of conduct was not reported")
+	}
 }
 
 func TestLeakScanCatchesTheClass(t *testing.T) {
@@ -328,9 +455,9 @@ func TestABrokenCheckDoesNotHideTheRest(t *testing.T) {
 // fixture can, so a full run exercises every rule's success path.
 func wellFormed() map[string]string {
 	return map[string]string{
-		"LICENSE": "Apache License\nVersion 2.0, January 2004\n" +
-			"TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION\n" +
-			"Copyright 2026 Codesweep\n",
+		"LICENSE":            lintdoc.LicenceText,
+		"NOTICE":             notice("Codesweep Thing"),
+		"CODE_OF_CONDUCT.md": lintdoc.CodeOfConductMD,
 		"README.md": "# thing\n\n> **One sentence.**\n\n" +
 			"[![CI](https://github.com/acme/thing/actions/workflows/ci.yml/badge.svg)]" +
 			"(https://github.com/acme/thing/actions/workflows/ci.yml)\n" +

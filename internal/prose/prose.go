@@ -124,9 +124,17 @@ type compiledTerm struct {
 	source Source
 }
 
-// skipDefault are the trees that are not this project's prose.
+// skipDefault are the trees and files that are not this project's prose.
+//
+// CODE_OF_CONDUCT.md is a third-party document carried word for word, and
+// OSS-109 fails a repository that has edited it. Checking its style here would
+// ask for the one edit the readiness linter forbids, so the two rules would
+// leave no file that satisfies both. The licence and NOTICE are held the same
+// way by OSS-107 and OSS-108, and are listed in their Markdown spellings
+// because that is the only shape of them this linter can see.
 var skipDefault = []string{"node_modules", "vendor", "dist", "bin", "target",
-	"build", ".git", "third_party", "testdata", "CHANGELOG.md"}
+	"build", ".git", "third_party", "testdata", "CHANGELOG.md",
+	"CODE_OF_CONDUCT.md", "LICENSE.md", "LICENCE.md", "NOTICE.md"}
 
 // New returns a prose linter tuned by the configuration given.
 func New(cfg config.Prose) (*Linter, error) {

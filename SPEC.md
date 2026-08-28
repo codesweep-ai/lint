@@ -299,15 +299,40 @@ error does not soften into advice at the moment the convention starts mattering
 to strangers. A history that already carries labels waives the rule with the
 reason, which is a decision somebody can read.*
 
+**R49.** The licence **MUST** be the canonical text of the licence it claims
+to be, byte for byte, and a finding **MUST** name the line that first differs.
+*An edited licence is one nobody has reviewed, and a forge names a licence by
+matching the canonical text, so it shows nothing for a file it cannot match.
+The Apache appendix is instructions for applying the licence to a source file
+rather than a blank the project fills in, so filling it in is an edit.*
+
+**R50.** `NOTICE` **MUST** carry the project name and the copyright line, and
+nothing else. The copyright line **MUST** be the one the family shares.
+*Apache 2.0 section 4(d) obliges every redistributor to carry NOTICE onward.
+Anything it says is then copied forever by people who cannot edit it, so a
+tagline propagates as far as the grant does. Sharing the second line puts the
+holder and the year in one place. Leaving the first to the project makes a
+NOTICE copied from a sibling and never edited visible as what it is.*
+
+**R51.** `CODE_OF_CONDUCT.md` **MUST** be the canonical Contributor Covenant
+text, byte for byte. A file held to a reference text **MUST NOT** be reported by
+the leak scan or the prose rules while it matches that reference. *The document
+is published under a licence that requires attribution. A paraphrase that drops
+the attribution block does not satisfy it. What a shortened copy loses is the
+enforcement ladder and the reporting address. That address is also a mail
+address, and its prose is not this project's to restyle. Without the exemption
+the rule set asks for the edit this requirement forbids, and no file satisfies
+both.*
+
 ### 4.6 The reference linter
 
-**R49.** The path check **MUST** read every tracked Markdown file, not only the
+**R52.** The path check **MUST** read every tracked Markdown file, not only the
 document set, and a tree it skips **MUST** be declared with a reason. The
 document set **MUST** be checked whatever a skip says. *A nested README makes
 the same claim the document set does, and a path it names that has moved is
 wrong in the same way. A skip nobody can review is a scan deleted in private.*
 
-**R50.** A section citation in the source **MUST** resolve, and a tree it skips
+**R53.** A section citation in the source **MUST** resolve, and a tree it skips
 **MUST** be declared with a reason. The suite **MUST** be read, and no
 `sourceSkip` **MUST** apply. A citation naming no document **MUST** be read
 against the spec, or against the only document that numbers its sections, and
@@ -317,44 +342,44 @@ its next reader as surely as one in production code, and a tree excluded because
 its settings are another program's still cites this repository's own spec. A
 rule that guesses which document was meant reports a finding nobody can act on.*
 
-**R51.** A numbered section **MUST** be recognised as a heading or as a bold
+**R54.** A numbered section **MUST** be recognised as a heading or as a bold
 lead-in. *A spec numbering its rules without adding a level to the table of
 contents is not a spec whose citations are all stale.*
 
-**R52.** A rule in this linter **MUST NOT** depend on the binary the
+**R55.** A rule in this linter **MUST NOT** depend on the binary the
 repository builds. *That is what lets a gate resolve every reference before it
 builds anything, and what makes this the first of the four to answer.*
 
 ### 4.7 The interface linter
 
-**R53.** Every claim **MUST** be compared against something that cannot lie:
+**R56.** Every claim **MUST** be compared against something that cannot lie:
 the tool's help tree, the source that reads a variable, the build file, or the
 command re-run now. *Nothing here guesses what a document ought to say.*
 
-**R54.** The help tree **MUST** be walked rather than assumed, to a depth of
+**R57.** The help tree **MUST** be walked rather than assumed, to a depth of
 three verbs. *A subcommand's own subcommands are where a surface goes
 undocumented.*
 
-**R55.** A verb whose help page is identical to its parent's **MUST NOT** be
+**R58.** A verb whose help page is identical to its parent's **MUST NOT** be
 walked for children. *A tool with no per-verb help answers with the page its
 parent gave, and reading those as children multiplies the tree by itself at
 every level.*
 
-**R56.** A sample **MUST NOT** be re-run unless every command in it names a
+**R59.** A sample **MUST NOT** be re-run unless every command in it names a
 declared safe verb. *A checker that writes can mask the staleness another gate
 exists to catch.*
 
-**R57.** An elision in a recorded line **MUST** match whatever the command
+**R60.** An elision in a recorded line **MUST** match whatever the command
 prints in its place, and everything either side of it **MUST** still match.
 
-**R58.** A variable read only by test code **MUST NOT** be reported as an
+**R61.** A variable read only by test code **MUST NOT** be reported as an
 undocumented setting. *A variable only the suite reads is instrumentation
 rather than a setting.*
 
-**R59.** A variable passed to a child process **MUST NOT** be read as a
+**R62.** A variable passed to a child process **MUST NOT** be read as a
 setting the tool itself reads.
 
-**R60.** Where the tool carries a `manual` verb and the repository carries
+**R63.** Where the tool carries a `manual` verb and the repository carries
 `MANUAL.md`, what the verb prints **MUST** be what the file holds, ignoring a
 trailing newline. Where the verb, the file or the binary is absent, or the verb
 does not exit zero, the rule **MUST** report a skip. The finding **MUST** name
@@ -362,7 +387,7 @@ the first line that differs. *The printed copy is what a machine with no
 checkout reads, so a stale binary sends the wrong answer to the reader least
 able to notice, and the first differing line is where a rebuild shows its work.*
 
-**R61.** Every rule in this linter **MUST** report a skip of its own where
+**R64.** Every rule in this linter **MUST** report a skip of its own where
 there is no binary to ask. *A project that has not wired a build dependency
 still runs the linter, and one collective failure would tell it nothing about
 which checks it lost.*
@@ -509,7 +534,7 @@ test run and gated at a floor.
 
 ## 8. Conformance
 
-An implementation conforms when it satisfies R1 through R61, and when:
+An implementation conforms when it satisfies R1 through R64, and when:
 
 1. `cs-lint <linter> --explain` prints every rule it carries, with its reason.
 2. Every rule that reports a finding appears in that listing.
