@@ -186,7 +186,8 @@ off and says nothing about it.
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md), and run `make check` before you push.
+Read [CONTRIBUTING.md](CONTRIBUTING.md). It applies to coding agents as well
+as to people.
 
 ## License
 
