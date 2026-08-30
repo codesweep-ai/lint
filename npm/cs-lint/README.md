@@ -1,39 +1,62 @@
 # @codesweep-ai/cs-lint
 
-Four linters over one repository: how its documents are written, whether
-everything they point at is still there, whether the interface they describe is
-the real one, and what a published repository owes a reader.
+> **Various linters: doc style, doc correctness, open-source readiness, and more.**
 
-This package carries the [cs-lint](https://github.com/codesweep-ai/lint) binary
-for npm projects. The tool is written in Go and ships as a static binary, so
-nothing here needs a Go toolchain: npm installs the one binary your machine
-runs, and nothing is compiled, downloaded or written when you install it.
+[![CI](https://github.com/codesweep-ai/lint/actions/workflows/ci.yml/badge.svg)](https://github.com/codesweep-ai/lint/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/codesweep-ai/lint/blob/main/LICENSE)
+![Rules](https://img.shields.io/badge/rules-105-informational)
 
-## Install
+`cs-lint` is a linter for repositories. It has four commands:
+
+- **`cs-lint prose`** checks how the documentation is written.
+- **`cs-lint refs`** checks that everything the documentation points at is
+  still there.
+- **`cs-lint surface`** checks that the documented interface is the real one.
+- **`cs-lint oss`** checks that the repository has what an open-source project
+  needs.
+
+Each one prints a rule number, what is wrong, and the file and line to look at.
+Each exits non-zero when it finds something, so you can run it in CI.
+
+The linter is written in Go, and packaged here for npm projects.
+
+## Quickstart
 
 ```bash
 npm install --save-dev @codesweep-ai/cs-lint
+
+cd ~/code/my-project
+cs-lint prose          # how the documents are written
+cs-lint refs           # whether everything they point at is there
+cs-lint oss            # what a published repository owes a reader
+cs-lint surface        # whether the documented interface is the real one
 ```
 
-Or run it once against the repository you are standing in:
+A repository with nothing to tune needs no configuration. To tune one, write
+`.cs-lint.yaml` at its root:
 
-```bash
-npx @codesweep-ai/cs-lint prose
+```yaml
+docs:
+  documents: [README.md, MANUAL.md, SPEC.md]   # read by refs and surface
+
+  prose:
+    glossary: [cassette, ruleset]     # terms a reader cannot infer
+    lowercaseStarters: [my-tool]      # the command name, which starts sentences
+
+  refs:
+    placeholderOK: [my-project]       # paths a page leaves to the reader
+
+  surface:
+    tool: my-tool
+    toolPath: bin/my-tool
+    safeVerbs: [version, status]      # read-only verbs a sample check may re-run
+
+oss:
+  project: my-tool
+  githubRepo: acme/my-tool
 ```
 
-## Use
-
-Each linter is a verb, and each reads the repository and writes nothing:
-
-```bash
-cs-lint prose      # how the documents are written
-cs-lint refs       # whether every reference in them resolves
-cs-lint oss        # what a published repository owes a reader
-cs-lint surface    # whether the documented interface is the real one
-```
-
-The value is in the gate rather than the command you remember to type, so put
-them in the one script a contributor already runs before pushing:
+Then wire it into the one command a contributor already runs:
 
 ```json
 {
@@ -45,12 +68,6 @@ them in the one script a contributor already runs before pushing:
   }
 }
 ```
-
-`prose` and `refs` read the tracked tree and nothing else, so they answer in
-seconds and belong early, before anything is built.
-
-Every run exits 0 when it found nothing, 1 when it found something, and 2 when
-it could not run at all. A gate reads all three.
 
 ## Docs
 
