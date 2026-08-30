@@ -17,12 +17,11 @@
     "url": "https://github.com/codesweep-ai/lint/issues"
   },
   "keywords": [
-    "lint",
-    "linter",
+    "ai-agents",
+    "developer-tools",
     "documentation",
-    "prose",
-    "open-source",
-    "ci"
+    "golang",
+    "linter"
   ],
   "publishConfig": {
     "access": "public"
