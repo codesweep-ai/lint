@@ -52,29 +52,21 @@ seconds and belong early, before anything is built.
 Every run exits 0 when it found nothing, 1 when it found something, and 2 when
 it could not run at all. A gate reads all three.
 
-## Reading further
+## Docs
 
-The [repository](https://github.com/codesweep-ai/lint) says what each linter is
-for. [MANUAL.md](https://github.com/codesweep-ai/lint/blob/main/MANUAL.md) has
-the full surface: every rule, every flag, and every key of the `.cs-lint.yaml`
-a project writes when it has something to tune.
-[INSTALL.md](https://github.com/codesweep-ai/lint/blob/main/INSTALL.md) covers
-the programs a few checks skip without, and the routes a project with a Go
-toolchain can take instead.
+The documentation lives in the [codesweep-ai/lint](https://github.com/codesweep-ai/lint)
+GitHub repository, and none of it ships in this package.
 
-## Platforms
+- [INSTALL.md](https://github.com/codesweep-ai/lint/blob/main/INSTALL.md) · how to get the tool, and the setup it needs once
+- [MANUAL.md](https://github.com/codesweep-ai/lint/blob/main/MANUAL.md) · the full surface: commands, options, settings, exit codes
+- [SPEC.md](https://github.com/codesweep-ai/lint/blob/main/SPEC.md) · what the behaviour must be, and what is left open
+- [CONTRIBUTING.md](https://github.com/codesweep-ai/lint/blob/main/CONTRIBUTING.md) · conventions, and the rituals a diff does not show
+- [AGENTS.md](https://github.com/codesweep-ai/lint/blob/main/AGENTS.md) · where an agent looks first
 
-macOS and Linux, on both Intel and Apple silicon. The binaries ship as four
-packages, each marked with the platform it is for and listed as an optional
-dependency of this one, so npm installs the single package that matches and
-skips the other three.
+## Contributing
 
-If you see a message saying a platform package is missing, npm has dropped an
-optional dependency, which a clean reinstall fixes:
-
-```bash
-rm -rf node_modules package-lock.json && npm install
-```
+Read [CONTRIBUTING.md](https://github.com/codesweep-ai/lint/blob/main/CONTRIBUTING.md).
+It applies to coding agents as well as to people.
 
 ## License
 
