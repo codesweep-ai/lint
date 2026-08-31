@@ -197,9 +197,11 @@ func compileTerms(shared []Term, extra map[string]string) ([]compiledTerm, error
 	return out, nil
 }
 
-// Files returns every Markdown file the linter checks: the repository root, and
-// docs/ or doc/ if either exists. A project that keeps prose somewhere else
-// adds it through skipExtra in reverse, by naming what to leave out.
+// Files returns every file the linter checks: the Markdown at the repository
+// root, in docs/ or doc/ if either exists, and the ledger's own records and
+// rendered page where the repository keeps one. A project that keeps prose
+// somewhere else adds it through skipExtra in reverse, by naming what to leave
+// out.
 func (l *Linter) Files(root string) ([]string, error) {
 	skip := map[string]bool{}
 	for _, s := range append(skipDefault, l.cfg.SkipExtra...) {
@@ -249,7 +251,7 @@ func (l *Linter) Files(root string) ([]string, error) {
 		sort.Strings(nested)
 		found = append(found, nested...)
 	}
-	return found, nil
+	return append(found, l.ledgerFiles(root, skip)...), nil
 }
 
 var specRequirement = regexp.MustCompile(`(?m)^\*\*R\d+[a-z]?\.\*\*`)
@@ -268,13 +270,22 @@ func docClass(raw string) string {
 	return "prose"
 }
 
-// Check reads one document and returns what is wrong with its prose.
+// Check reads one file and returns what is wrong with the prose in it.
 func (l *Linter) Check(root, rel string) ([]lint.Problem, error) {
-	b, err := os.ReadFile(filepath.Join(root, rel))
+	pieces, err := l.pieces(root, rel)
 	if err != nil {
 		return nil, err
 	}
-	raw := string(b)
+	var out []lint.Problem
+	for _, p := range pieces {
+		out = append(out, l.check(p)...)
+	}
+	return out, nil
+}
+
+// check runs every rule over one run of prose.
+func (l *Linter) check(p piece) []lint.Problem {
+	raw, rel := p.text, p.rel
 	text := mdtext.Prose(raw)
 
 	var out []lint.Problem
@@ -282,7 +293,13 @@ func (l *Linter) Check(root, rel string) ([]lint.Problem, error) {
 		return p.At(fmt.Sprintf("%s:%d", rel, lint.Line(body, off)))
 	}
 
-	out = append(out, l.paragraphRules(text, rel)...)
+	// A record's title is its headline, and the page renders it as one. The
+	// three rules measured over a paragraph pass over a Markdown heading for
+	// the same reason: a headline is not a sentence, and asking it to be one
+	// would ask for "Initial implementation" to grow a verb.
+	if p.kind != title {
+		out = append(out, l.paragraphRules(text, rel, p.kind)...)
+	}
 	out = append(out, l.declinedTerms(text, docClass(raw), rel)...)
 	out = append(out, l.repeatedWords(text, rel)...)
 	out = append(out, l.lyHyphens(text, rel)...)
@@ -300,11 +317,23 @@ func (l *Linter) Check(root, rel string) ([]lint.Problem, error) {
 		}
 	}
 	out = append(out, l.assertedCounts(text, rel)...)
-	out = append(out, l.undefinedTerms(raw, rel)...)
+	// PROSE-101 asks a document to introduce a term where it first uses one,
+	// and only a document can. A record is read by somebody already inside the
+	// project, with the documents beside it, and each of its fields is checked
+	// on its own, so the rule would ask every record to introduce the whole
+	// glossary again. A page label has nowhere to put a gloss at all.
+	if p.kind == document {
+		out = append(out, l.undefinedTerms(raw, rel)...)
+	}
 	out = append(out, l.throatClearing(text, rel)...)
 	out = append(out, l.echoes(text, rel)...)
 	out = append(out, l.unshownScripts(raw, rel)...)
-	return out, nil
+	if p.anchor != "" {
+		for i := range out {
+			out[i] = out[i].At(p.anchor)
+		}
+	}
+	return out
 }
 
 var conflictMarker = regexp.MustCompile(`(?m)^(?:<{7}|={7}|>{7})(?:\s.*)?$`)
@@ -321,12 +350,22 @@ var negativeHeading = regexp.MustCompile(`(?im)^#{2,6}\s+.*\b(?:` +
 
 // paragraphRules covers the three rules measured over a paragraph: the em-dash
 // budget, the sentence length, and the verbless epigram.
-func (l *Linter) paragraphRules(text, rel string) []lint.Problem {
+func (l *Linter) paragraphRules(text, rel string, kind pieceKind) []lint.Problem {
+	// A page is split by the line rather than by the blank line. Markup, not
+	// spacing, is what separates one block from the next in it, and the blocks
+	// arrive here already stripped: run them together and a heading joins the
+	// sentence under it into one long sentence that nobody wrote. A block that
+	// wraps across source lines is read as its parts, which can only report
+	// less than the whole would, never more.
+	sep := "\n\n"
+	if kind == page {
+		sep = "\n"
+	}
 	var out []lint.Problem
 	offset := 0
-	for para := range strings.SplitSeq(text, "\n\n") {
+	for para := range strings.SplitSeq(text, sep) {
 		start := offset
-		offset += len(para) + 2
+		offset += len(para) + len(sep)
 		flat := mdtext.Flatten(para)
 		if flat == "" || strings.HasPrefix(flat, "#") {
 			continue
@@ -348,7 +387,7 @@ func (l *Linter) paragraphRules(text, rel string) []lint.Problem {
 
 		for _, u := range mdtext.Units(para) {
 			for _, s := range l.splitter.Sentences(mdtext.Flatten(u)) {
-				out = append(out, l.sentenceRules(s, where)...)
+				out = append(out, l.sentenceRules(s, where, kind)...)
 			}
 		}
 	}
@@ -357,7 +396,7 @@ func (l *Linter) paragraphRules(text, rel string) []lint.Problem {
 
 var linkOnly = regexp.MustCompile(`^[\[!]`)
 
-func (l *Linter) sentenceRules(s, where string) []lint.Problem {
+func (l *Linter) sentenceRules(s, where string, kind pieceKind) []lint.Problem {
 	words := strings.Fields(s)
 	// Bullets and headings are not sentences.
 	for _, p := range []string{"-", "*", ">", "#", "|", "[!["} {
@@ -374,6 +413,13 @@ func (l *Linter) sentenceRules(s, where string) []lint.Problem {
 	if len(words) > maxSentenceWords {
 		out = append(out, lint.Errorf("PROSE-103", "%d-word sentence (max %d)",
 			len(words), maxSentenceWords).At(where).Quoting(s))
+	}
+	// A rendered page is checked for what a reader reads, and most of what a
+	// reader reads on one is a control: "status all", "stale only", "reset".
+	// None of those is a sentence missing its verb, and rewriting them into
+	// sentences would make the page worse.
+	if kind == page {
+		return out
 	}
 	if len(words) >= 3 && len(words) <= maxEpigramWords && !l.verbs.MatchString(s) {
 		out = append(out, lint.Errorf("PROSE-102",
@@ -672,13 +718,19 @@ type Stats struct {
 
 var youRE = regexp.MustCompile(`(?i)\byou\b|\byour\b`)
 
-// Stats measures one document.
+// Stats measures one file. A file holding its prose in fields is measured
+// whole: the record is the unit a writer thinks in, not the field.
 func (l *Linter) Stats(root, rel string) (Stats, error) {
-	b, err := os.ReadFile(filepath.Join(root, rel))
+	pieces, err := l.pieces(root, rel)
 	if err != nil {
 		return Stats{}, err
 	}
-	text := mdtext.Prose(string(b))
+	var joined strings.Builder
+	for _, p := range pieces {
+		joined.WriteString(p.text)
+		joined.WriteString("\n\n")
+	}
+	text := mdtext.Prose(joined.String())
 	words := len(strings.Fields(text))
 	var sents []string
 	for para := range strings.SplitSeq(text, "\n\n") {

@@ -11,6 +11,12 @@ func splitFields(s string) []string { return strings.Fields(s) }
 // has needed. A project adds only what is its own, through projectVerbs in the
 // configuration file; an ordinary English verb belongs here, where every
 // project gets it.
+//
+// The last group is the past tense, and it was the last to arrive. A document
+// says what the software is, so the list grew up in the present; a ledger
+// record says what happened, and the first corpus of records read reported
+// "A third instance sat in an example commit message." as an epigram with no
+// verb.
 const sharedVerbs = `
 is|are|was|were|be|been|being|has|have|had|does|do|did|can|cannot|could|may|
 might|must|should|would|will|serves?|holds?|keeps?|makes?|takes?|gives?|
@@ -55,4 +61,7 @@ rebuild|scrape|cycles?|supersedes?|steps?|enforces?|bounds?|generates?|
 suffices?|suffice|
 establish(?:es)?|remain(?:s)?|reflects?|performs?|composes?|states?|become|
 prevent(?:s)?|talks?|talk|supervis(?:e|es|ing)|delegates?|judges?|
-attempts?|attempted|diagnos(?:e|es|ed)`
+attempts?|attempted|diagnos(?:e|es|ed)|
+moved|stayed|sat|printed|held|ran|wrote|showed|took|gave|kept|made|got|went|
+came|sent|told|meant|left|failed|passed|returned|reported|opened|closed|
+added|dropped|landed|needed|wanted|shipped|began|broke|chose|knew|found`

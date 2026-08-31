@@ -23,6 +23,9 @@ func proseCmd(opt *options) *cobra.Command {
 			"three em-dashes, and terms used pages before anything defines them.\n\n" +
 			"Code fences, tables and link definitions are excluded throughout: they are\n" +
 			"not prose, and none of the rules are about them.\n\n" +
+			"Where the repository keeps a ledger, the prose in its records and on the\n" +
+			"page they render to is read as well. Naming ledger in skipExtra turns\n" +
+			"that off.\n\n" +
 			"It asks for no binary and no build, so it is the first gate a repository\n" +
 			"can run and the cheapest one to keep green.",
 		Args: cobra.NoArgs,

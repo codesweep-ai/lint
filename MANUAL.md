@@ -52,6 +52,22 @@ It reads every Markdown file at the repository root, and every one under
 `docs/` or `doc/`. Code fences, tables, link definitions and raw HTML are
 excluded throughout: they are not prose, and none of the rules are about them.
 
+Where the repository keeps a ledger, it also reads what the ledger holds. In
+every JSON file under `ledger/` that is the fields carrying prose: a record's
+title, details, resolution, verification and notes. Beside them it reads the
+text a reader sees on the page those records render to. A finding in a record
+names the line the field sits on.
+
+The two documents `cs-ledger` renders into the tree, `ledger/AGENTS.md` and
+`ledger/GUIDE.md`, are left alone, because OSS-602 reports a repository that
+has edited either. Naming `ledger` in `skipExtra` turns the whole family off.
+
+Three rules read less there than they do in a document. The glossary rule is
+not applied to a record or a page: introducing a term is a document's job, and
+a record is read from inside the project. The verbless-sentence rule is not
+applied to a page, where most of the text is a control rather than a sentence.
+A record's title is read as a heading, which is what the page renders it as.
+
 A document that numbers three or more requirements in bold is read as a
 specification, and the rules written for ordinary prose are not applied to it.
 
@@ -219,7 +235,7 @@ two halves would then disagree about which pages this repository publishes.
 
 | Key | Default | Effect |
 |---|---|---|
-| `skipExtra` | empty | Directories of fixtures, corpora or generated Markdown to leave out. |
+| `skipExtra` | empty | Directories of fixtures, corpora or generated Markdown to leave out. `ledger` turns off the ledger checks. |
 | `glossary` | empty | Terms a reader cannot infer. An empty list disables the most valuable check. |
 | `lowercaseStarters` | empty | Words that legitimately start a sentence in lower case. |
 | `projectVerbs` | empty | Verbs the shared list does not carry. |

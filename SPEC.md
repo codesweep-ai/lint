@@ -198,6 +198,34 @@ day it is written and wrong by the next commit, with nothing to fail when it
 drifts. What a command printed is the sample check's to hold, not this one's,
 and a number quoted as text is being shown rather than asserted.*
 
+**R28a.** Where a repository keeps a ledger, every JSON file under `ledger/`
+and every page rendered beside them **MUST** be checked. The fields that hold
+prose are what is checked in the first, and the text a reader sees is what is
+checked in the second. *The records are this project's own writing, published
+on a page a human is pointed at. Neither is Markdown, so nothing opened
+either.*
+
+**R28b.** A finding in a record **MUST** name the line the field sits on, and a
+file that does not parse **MUST** report nothing. *A JSON string escapes its
+newlines, so a field of any length is one line, and that line is the one a
+writer opens. Whether a record is valid is `cs-ledger check`'s question, and
+two tools answering it disagree the moment one is a version behind.*
+
+**R28c.** The glossary rule **MUST NOT** be applied to a record or to a page.
+The verbless sentence rule **MUST NOT** be applied to a page. A record's title
+**MUST** be checked as a heading. *Introducing a term is a document's job. A
+record is written from inside the project, and each of its fields is checked
+alone, so the rule would ask every record to introduce the whole glossary
+again. Most of the text on a rendered page is a control, and "stale only" is
+not a sentence missing its verb. A title is a headline, which is what a
+Markdown heading is passed over for.*
+
+**R28d.** The two Markdown documents the ledger tool renders into the tree
+**MUST NOT** be read. *`cs-ledger` writes `ledger/AGENTS.md` and
+`ledger/GUIDE.md`, and the readiness linter reports a repository whose copies
+are not the current render, so checking their style would ask for the one edit
+that rule forbids.*
+
 ### 4.5 The readiness linter
 
 **R29.** Every tracked file **MUST** be scanned, not a chosen subset. *Leaks

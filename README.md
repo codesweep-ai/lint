@@ -28,7 +28,7 @@ Each exits non-zero when it finds something, so you can run it in CI.
       │               │               │               │
    the prose      the paths      the tracked tree   the help tree
    in *.md        + the cites    + the git history  + the source
-      │           + the router         │            + the commands, re-run
+   + the ledger   + the router         │            + the commands, re-run
       ▼               ▼                ▼               ▼
    PROSE-1xx       REF-1xx…3xx     OSS-1xx…8xx     SURF-1xx…3xx
       └───────────────┴───────┬───────┴───────────────┘
@@ -94,10 +94,11 @@ ci:    check build            # every job your CI workflow runs, on one machine
 ### `cs-lint prose`
 
 Checks the writing in every Markdown file at the repository root and under
-`docs/`. It reports sentences over thirty words, words the project has decided
-against, a term used before anything explains it, and writing that comments on
-itself. It also catches mechanical slips: a word written twice, an em-dash, a
-merge marker left in the text.
+`docs/`. Where the repository keeps a ledger, it reads the prose in the records
+and on the page they render to. It reports sentences over thirty words, words the
+project has decided against, a term used before anything explains it, and
+writing that comments on itself. It also catches mechanical slips: a word
+written twice, an em-dash, a merge marker left in the text.
 
 Rules taken from a published style guide say which one, so you can look up the
 reasoning rather than argue with the tool.

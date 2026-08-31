@@ -535,3 +535,18 @@ func TestTheMachineRegisterDoesNotCryWolf(t *testing.T) {
 		})
 	}
 }
+
+// The verb list grew out of documents, which say what the software is. A
+// record says what happened, and the past tense arrived with the first corpus
+// of them.
+func TestPastTenseIsAVerb(t *testing.T) {
+	for _, s := range []string{
+		"A third instance sat in an example commit message.",
+		"The launch reduction moved the corpus and the sample stayed behind.",
+		"The binary printed the older version.",
+	} {
+		if got := check(t, config.Prose{}, s+"\n"); has(got, "PROSE-102") {
+			t.Errorf("%q was read as an epigram", s)
+		}
+	}
+}

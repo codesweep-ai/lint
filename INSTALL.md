@@ -155,7 +155,8 @@ cd ~/code/my-project
 cs-lint prose --list
 ```
 
-That prints the Markdown files a prose run would read. If the list is empty or
+That prints the files a prose run would read: the Markdown, and the ledger's
+own records and page where the repository keeps one. If the list is empty or
 carries files that are not this project's prose, the `docs.prose.skipExtra` key
 is what fixes it.
 
