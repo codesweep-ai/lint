@@ -97,7 +97,6 @@ machine without them still gets a useful run.
 | `goreleaser` | the release-manifest check | that rule skips |
 | `actionlint` | the workflow check | that rule skips, unless the repository pins actionlint as a Go tool, which cs-lint then runs |
 | `gh` | `oss --online` | those rules skip |
-| `cs-ledger` | the ledger rules, in a repository that keeps one | those rules skip |
 | `cosign` | verifying a release you downloaded | you cannot check the signature |
 
 Install what you want on Fedora or RHEL:

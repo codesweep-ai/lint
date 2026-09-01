@@ -6,25 +6,14 @@ import (
 	"github.com/codesweep-ai/lint/internal/lint"
 )
 
+// Whether a ledger's records are valid and its page current is the question the
+// ledger's own tool answers, against the schema the records were written to.
+// Asking a second tool would put the verdict on whichever copy of that tool the
+// caller happens to have installed, which disagrees with the tree the moment one
+// is a version behind. So these rules read what is in the repository: that the
+// ledger carries its documents, that the repository routes to it, and that CI
+// runs the check.
 var ledgerRules = []rule{{
-	id: "OSS-601", severity: lint.Error,
-	title: "A tracked ledger validates and its page is current",
-	why: "The rendered page is what a human reads. A record changed without a re-render " +
-		"publishes a page that disagrees with the records beside it.",
-	check: func(l *Linter) []lint.Problem {
-		if !l.keepsLedger() {
-			return []lint.Problem{lint.Skipf("OSS-601", "this repository keeps no ledger")}
-		}
-		if !lint.Have("cs-ledger") {
-			return []lint.Problem{lint.Skipf("OSS-601", "cs-ledger is not installed")}
-		}
-		out, ok := l.repo.Run("cs-ledger", "check", "ledger")
-		if !ok {
-			return []lint.Problem{lint.Errorf("OSS-601", "cs-ledger check failed: %s", lastLine(out))}
-		}
-		return nil
-	},
-}, {
 	id: "OSS-602", severity: lint.Error,
 	title: "The ledger carries its own router and guide",
 	why: "An agent that finds records with no doctrine beside them invents a practice, " +

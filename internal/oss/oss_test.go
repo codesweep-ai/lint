@@ -709,7 +709,7 @@ func TestModulePathMatchesTheRemote(t *testing.T) {
 
 func TestLedgerRulesSkipWithoutALedger(t *testing.T) {
 	files := map[string]string{"a.txt": "x\n"}
-	for _, id := range []string{"OSS-601", "OSS-602", "OSS-603", "OSS-604"} {
+	for _, id := range []string{"OSS-602", "OSS-603", "OSS-604"} {
 		got := run(t, id, config.OSS{}, files)
 		if len(got) != 1 || got[0].Severity != lint.Skip {
 			t.Errorf("%s on a repository with no ledger gave %v", id, got)
