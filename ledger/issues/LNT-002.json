@@ -3,14 +3,25 @@
   "title": "SURF-101 misses a command synopsis written as pipe-separated alternatives",
   "type": "defect",
   "severity": "med",
-  "status": "open",
+  "status": "closed",
   "foundBy": "user report: \"SURF-101 misses a command synopsis written as pipe-separated alternatives\"",
   "opened": "2026-09-07",
-  "resolved": null,
-  "stint": null,
-  "evidence": { "commits": [], "integrated": [], "verified": null },
-  "resolution": null,
+  "resolved": "2026-09-07",
+  "stint": "2026-09-07 session: open the ledger and clear its first record",
+  "evidence": {
+    "commits": [
+      "a54b06e"
+    ],
+    "integrated": [],
+    "verified": "go test ./internal/surface/ -count=1: TestStaleAlternativeInASynopsisIsReported PASS. Against the unmodified rule it fails with `got [], want one finding naming `tool pin``. Against the built binary, a fenced `cs-lint prose|refs|frobnicate|surface` in SPEC.md reports `SURF-101 error     `cs-lint frobnicate` is documented and the binary does not have it`, where it reported nothing before. `cs-lint prose|refs|surface|oss` and `cs-lint manual|grep prose` both stay quiet, and the surface linter reports no errors on vcr, tracer and ledger."
+  },
+  "resolution": "The walk splits a verb slot written as `a|b|c` and resolves each alternative against the binary. Two of the parts have to name verbs the tool carries, which is what keeps a pipeline written without spaces from being read as a list. SPEC.md R64 states the requirement.",
   "details": "A document that states its command surface as pipe-separated alternatives gets no SURF-101 finding, however stale the verbs are.\n\n```sh\ntool doctor|pin|manual|version\n```\n\n`strings.Fields` reads `doctor|pin|manual|version` as one word. That word does not match `verbWord`, so the walk stops before a single alternative reaches the binary. A `pin` the tool no longer carries sits there unreported.\n\nThe rule works on the ordinary form. A fenced `tool frobnicate` on a documented page is reported:\n\n```\nSURF-101 error     `tool frobnicate` is documented and the binary does not have it\n```\n\nSo the gap is the shape rather than the check. Splitting the word on `|` before resolving each alternative would close it, provided a genuine pipeline is still read as one.\n\nThe synopsis form is conventional in a spec section or a man page. That is where a project states its surface most compactly, and where drift is least visible.",
-  "notes": [],
+  "notes": [
+    {
+      "date": "2026-09-07",
+      "text": "A synopsis whose alternatives are all stale is still missed, because the split needs two live verbs to tell a synopsis from a tight pipeline. SURF-102 covers that case from the other side: it reports the verbs the binary carries that no document names."
+    }
+  ],
   "links": []
 }
