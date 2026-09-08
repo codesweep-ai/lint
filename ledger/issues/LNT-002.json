@@ -1,0 +1,16 @@
+{
+  "id": "LNT-002",
+  "title": "SURF-101 misses a command synopsis written as pipe-separated alternatives",
+  "type": "defect",
+  "severity": "med",
+  "status": "open",
+  "foundBy": "user report: \"SURF-101 misses a command synopsis written as pipe-separated alternatives\"",
+  "opened": "2026-09-07",
+  "resolved": null,
+  "stint": null,
+  "evidence": { "commits": [], "integrated": [], "verified": null },
+  "resolution": null,
+  "details": "A document that states its command surface as pipe-separated alternatives gets no SURF-101 finding, however stale the verbs are.\n\n```sh\ntool doctor|pin|manual|version\n```\n\n`strings.Fields` reads `doctor|pin|manual|version` as one word. That word does not match `verbWord`, so the walk stops before a single alternative reaches the binary. A `pin` the tool no longer carries sits there unreported.\n\nThe rule works on the ordinary form. A fenced `tool frobnicate` on a documented page is reported:\n\n```\nSURF-101 error     `tool frobnicate` is documented and the binary does not have it\n```\n\nSo the gap is the shape rather than the check. Splitting the word on `|` before resolving each alternative would close it, provided a genuine pipeline is still read as one.\n\nThe synopsis form is conventional in a spec section or a man page. That is where a project states its surface most compactly, and where drift is least visible.",
+  "notes": [],
+  "links": []
+}
