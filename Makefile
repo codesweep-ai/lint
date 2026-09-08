@@ -6,7 +6,8 @@
 GORELEASER ?= goreleaser
 # The linters the gates shell out to, all pinned and all built from the module
 # cache, so a fresh checkout runs `make check` with nothing installed by hand.
-# deadcode and actionlint are `tool` directives in go.mod and run with `go tool`.
+# deadcode, actionlint and cs-ledger are `tool` directives in go.mod and run
+# with `go tool`.
 # golangci-lint is one in go.golangci.mod, which says at its head why it needs a
 # module file of its own.
 GOLANGCI   := bin/tools/golangci-lint
@@ -59,7 +60,7 @@ COVERFLAGS  = -covermode=atomic -coverpkg=$(COVERPKG)
 COVER_MIN  ?= 70
 
 .PHONY: help tidy-check embed-check build build-go install uninstall test test-race coverage coverage-check ci \
-        vet fmt fmt-check check lint deadcode actionlint prose refs oss surface self \
+        vet fmt fmt-check check lint deadcode actionlint prose refs oss surface self ledger \
         snapshot release release-check clean npm-build npm-snapshot npm-local npm-publish
 
 .DEFAULT_GOAL := help
@@ -279,6 +280,13 @@ surface: build
 ## self: run every linter over this repository
 self: prose refs oss surface
 
+## ledger: validate the issue records and prove ledger.html is current
+##
+## cs-ledger is pinned in go.mod and run with `go tool`, so this gate is real on
+## every machine rather than skipping where the binary was never installed.
+ledger:
+	go tool cs-ledger check ledger
+
 ## check: the one command before pushing
 check: fmt-check tidy-check embed-check vet lint deadcode test coverage-check prose refs oss surface
 
@@ -306,6 +314,8 @@ ci:
 	@$(MAKE) --no-print-directory build
 	$(call say,release manifest)
 	@$(MAKE) --no-print-directory release-check
+	$(call say,ledger)
+	@$(MAKE) --no-print-directory ledger
 	@printf '\nci: every gate ran. Not reproduced here: build-test on macOS.\n'
 
 ## snapshot: build every release target without publishing

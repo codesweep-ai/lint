@@ -42,7 +42,8 @@ one that has to pass.
 
 No linter needs installing. The ones it shells out to are pinned Go tools,
 built from the module cache the first time you run them: `golangci-lint`,
-`deadcode` and `actionlint`. `make versions` prints the version of each.
+`deadcode`, `actionlint` and `cs-ledger`. `make repin` moves the `cs-` pins to
+the branch tip, and `make versions` prints the version of each.
 
 Moving a pin is an edit to `go.mod`, or to `go.golangci.mod` for
 `golangci-lint`. A linter release reaches you when you ask for it, not on an
@@ -51,6 +52,11 @@ unrelated pull request.
 `goreleaser` is the one program still expected on the PATH. `make ci`
 validates the release manifest with it, and `make build` falls back to
 `go build` where it is absent.
+
+This repository keeps a **ledger** of open issues in `ledger/`. Read
+[`ledger/AGENTS.md`](ledger/AGENTS.md) before you start work, and follow it as
+you go. A commit that touches `ledger/` needs `cs-ledger render && cs-ledger
+check` to pass first, and `make ledger` runs the check half.
 
 ## Design rules
 

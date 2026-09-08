@@ -106,6 +106,22 @@ jobs:
           go-version-file: go.mod
       - run: make surface
 
+  # The ledger's freshness gate. CONTRIBUTING.md asks for a render and a check
+  # before every commit that touches ledger/, and nothing else enforces it.
+  ledger:
+    name: ledger check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the check resolves every sha a record cites
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make ledger
+
   # The release manifest is validated on every change, because a manifest naming
   # a file that no longer exists breaks the release build outright and schema
   # validation does not catch it.

@@ -1,0 +1,9 @@
+{
+  "project": "lint",
+  "idPrefix": "LNT",
+  "schemaVersion": "issue.v1",
+  "staleAfterDays": 14,
+  "description": "cs-lint checks a repository against things that cannot lie: the tool's own help output, the source, the build file, the git history. Four linters cover documentation prose, documentation correctness, the documented interface and open-source readiness. This ledger tracks its defects, improvements and ideas.",
+  "toolVersion": "0.6.1",
+  "commitUrlTemplate": "https://github.com/codesweep-ai/lint/commit/{sha}"
+}

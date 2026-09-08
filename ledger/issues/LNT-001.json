@@ -1,0 +1,20 @@
+{
+  "id": "LNT-001",
+  "title": "Initial implementation",
+  "type": "improvement",
+  "severity": "low",
+  "status": "open",
+  "foundBy": "the repository's first commit",
+  "opened": "2026-08-19",
+  "resolved": null,
+  "stint": null,
+  "evidence": {
+    "commits": [],
+    "integrated": [],
+    "verified": null
+  },
+  "resolution": null,
+  "details": "Check a repository against things that cannot lie: the tool's own help output, the source, the build file, the git history. Four linters cover the prose in the documentation, the references it makes, the interface it describes, and the open-source readiness of the repository.",
+  "notes": [],
+  "links": []
+}
