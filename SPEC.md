@@ -415,7 +415,13 @@ the first line that differs. *The printed copy is what a machine with no
 checkout reads, so a stale binary sends the wrong answer to the reader least
 able to notice, and the first differing line is where a rebuild shows its work.*
 
-**R64.** Every rule in this linter **MUST** report a skip of its own where
+**R64.** A verb slot written as pipe-separated alternatives, `tool a|b|c`,
+**MUST** be resolved one alternative at a time, and a shell pipeline **MUST
+NOT** be read as one. *A synopsis is the most compact form a spec section or a
+man page states a surface in, and a stale verb inside one is invisible to a
+check that reads the whole slot as a single word.*
+
+**R65.** Every rule in this linter **MUST** report a skip of its own where
 there is no binary to ask. *A project that has not wired a build dependency
 still runs the linter, and one collective failure would tell it nothing about
 which checks it lost.*
@@ -562,7 +568,7 @@ test run and gated at a floor.
 
 ## 8. Conformance
 
-An implementation conforms when it satisfies R1 through R64, and when:
+An implementation conforms when it satisfies R1 through R65, and when:
 
 1. `cs-lint <linter> --explain` prints every rule it carries, with its reason.
 2. Every rule that reports a finding appears in that listing.

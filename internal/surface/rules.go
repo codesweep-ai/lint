@@ -36,18 +36,7 @@ var rules = []rule{{
 				if len(words) == 0 || filepath.Base(words[0]) != tool {
 					continue
 				}
-				var path []string
-				for _, word := range words[1:] {
-					if !verbWord.MatchString(word) {
-						break
-					}
-					path = append(path, word)
-					if carried[strings.Join(path, " ")] {
-						continue
-					}
-					break
-				}
-				if len(path) > 0 {
+				for _, path := range verbPaths(words[1:], carried) {
 					key := strings.Join(path, " ")
 					if _, seen := named[key]; !seen {
 						named[key] = block.Where()
@@ -415,6 +404,73 @@ var rules = []rule{{
 			set.Tool(), describeDrift(printed, body)).At(manual)}
 	},
 }}
+
+// verbPaths reads the verb path a command line claims about the surface. A
+// synopsis states one slot as alternatives, so it claims one path per
+// alternative and everything else claims a single path.
+//
+// A path is the longest run of verbs the tool carries, plus the word after it.
+// That word is the claim: everything before it resolved, so a name the binary
+// rejects there is the document naming a command that is gone.
+func verbPaths(words []string, carried map[string]bool) [][]string {
+	var path []string
+	for _, word := range words {
+		if alts := alternatives(word, path, carried); alts != nil {
+			var out [][]string
+			for _, alt := range alts {
+				out = append(out, append(append([]string{}, path...), alt))
+			}
+			return out
+		}
+		if !verbWord.MatchString(word) {
+			break
+		}
+		path = append(path, word)
+		if carried[strings.Join(path, " ")] {
+			continue
+		}
+		break
+	}
+	if len(path) == 0 {
+		return nil
+	}
+	return [][]string{path}
+}
+
+// alternatives reads a verb slot written as `a|b|c`, the compact form a spec
+// section or a man page states a surface in. It returns nil for anything else.
+//
+// A pipeline is written with spaces around the bar, so strings.Fields has
+// already broken one up before this sees it. What is left is a bar with no
+// spaces, which is either a synopsis or a pipeline somebody wrote tight, and
+// the second half of a tight pipeline names another program. Two of the parts
+// naming verbs this tool carries is what separates them: alternatives fill one
+// slot, so they are the same tool's verbs, and a stale one among them is the
+// finding.
+func alternatives(word string, path []string, carried map[string]bool) []string {
+	if !strings.Contains(word, "|") {
+		return nil
+	}
+	prefix := strings.Join(path, " ")
+	parts := strings.Split(word, "|")
+	known := 0
+	for _, part := range parts {
+		if !verbWord.MatchString(part) {
+			return nil
+		}
+		name := part
+		if prefix != "" {
+			name = prefix + " " + part
+		}
+		if carried[name] {
+			known++
+		}
+	}
+	if known < 2 {
+		return nil
+	}
+	return parts
+}
 
 func nonEmpty(lines []string) []string {
 	var out []string

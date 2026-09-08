@@ -1,6 +1,7 @@
 package surface
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -76,6 +77,76 @@ func TestMatchesTreatsAnElisionAsAWildcard(t *testing.T) {
 	}
 	if matches("exact line", "different line") {
 		t.Error("an exact line matched something else")
+	}
+}
+
+// verbTool writes a binary that carries exactly the verbs given: it lists them
+// under --help, answers each of them, and exits non-zero on anything else. That
+// last part is what SURF-101 reads, so a fake answering every argument would
+// make the rule unable to fail.
+func verbTool(t *testing.T, files map[string]string, verbs ...string) *lint.Repo {
+	t.Helper()
+	var listing, arms strings.Builder
+	listing.WriteString(`Usage: tool\n\nAvailable Commands:\n`)
+	for _, v := range verbs {
+		fmt.Fprintf(&listing, `  %s  what %s does\n`, v, v)
+		arms.WriteString(v + "|")
+	}
+	files["bin/tool"] = "#!/bin/sh\ncase \"$1\" in\n" +
+		arms.String() + "-h) printf 'Usage: tool %s\\n' \"$1\" ;;\n" +
+		"''|--help|help) printf '" + listing.String() + "' ;;\n" +
+		"*) echo \"unknown command \\\"$1\\\" for \\\"tool\\\"\" >&2; exit 1 ;;\n" +
+		"esac\n"
+	repo := linttest.Repo(t, files)
+	if err := os.Chmod(repo.Path("bin/tool"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return repo
+}
+
+// surfaceDocs is the tuning a SURF-101 case needs: one document, and the fake
+// binary to resolve what it names against.
+func surfaceDocs(doc string) config.Docs {
+	return config.Docs{
+		Documents: []string{doc},
+		Surface:   config.Surface{Tool: "tool", ToolPath: "bin/tool"},
+	}
+}
+
+// A spec section states the surface as `tool a|b|c`, which is the compact form
+// a man page reaches for and the one where drift is least visible.
+func TestStaleAlternativeInASynopsisIsReported(t *testing.T) {
+	files := map[string]string{
+		"SPEC.md": "# Spec\n\n```sh\ntool doctor|pin|manual|version   # health and metadata\n```\n",
+	}
+	repo := verbTool(t, files, "doctor", "manual", "version")
+	got := runIn(t, "SURF-101", surfaceDocs("SPEC.md"), repo)
+	if len(got) != 1 || !strings.Contains(got[0].Message, "`tool pin`") {
+		t.Fatalf("got %v, want one finding naming `tool pin`", got)
+	}
+}
+
+// The same shape with nothing stale in it, which is the case the rule has to
+// stay quiet on.
+func TestCurrentSynopsisIsNotReported(t *testing.T) {
+	files := map[string]string{
+		"SPEC.md": "# Spec\n\n```sh\ntool doctor|manual|version\n```\n",
+	}
+	repo := verbTool(t, files, "doctor", "manual", "version")
+	if got := runIn(t, "SURF-101", surfaceDocs("SPEC.md"), repo); len(got) != 0 {
+		t.Errorf("a synopsis naming only current verbs reported %v", got)
+	}
+}
+
+// A bar with no spaces around it is also how a pipeline gets written, and the
+// second half of one names another program rather than a verb of this tool.
+func TestAPipelineIsNotReadAsASynopsis(t *testing.T) {
+	files := map[string]string{
+		"SPEC.md": "# Spec\n\n```sh\ntool manual|grep doctor\n```\n",
+	}
+	repo := verbTool(t, files, "doctor", "manual", "version")
+	if got := runIn(t, "SURF-101", surfaceDocs("SPEC.md"), repo); len(got) != 0 {
+		t.Errorf("a pipeline was read as a list of alternatives: %v", got)
 	}
 }
 
