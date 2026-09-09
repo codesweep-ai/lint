@@ -128,7 +128,7 @@ exists belongs beside the rule in [`SPEC.md`](SPEC.md), and the
 investigation that found it belongs in the pull request.
 
 ```
-Reject a manifest that names a file the rework deleted
+Reject a manifest that names a deleted file
 ```
 
 ```
