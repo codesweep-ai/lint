@@ -150,6 +150,116 @@ func TestAPipelineIsNotReadAsASynopsis(t *testing.T) {
 	}
 }
 
+// A slot worn down to two alternatives cannot prove itself: one live verb
+// beside one stale one is also the shape of a pipeline written tight. The
+// surface block it sits in is what settles the reading, and this is the shape
+// a synopsis reaches after verbs are deleted from it one at a time.
+func TestDecayedSlotInASurfaceBlockIsReported(t *testing.T) {
+	files := map[string]string{
+		"SPEC.md": "# Spec\n\n```sh\ntool init|validate|plan\ntool doctor|pin\n```\n",
+	}
+	repo := verbTool(t, files, "init", "validate", "plan", "doctor")
+	got := runIn(t, "SURF-101", surfaceDocs("SPEC.md"), repo)
+	if len(got) != 1 || !strings.Contains(got[0].Message, "`tool pin`") {
+		t.Fatalf("got %v, want one finding naming `tool pin`", got)
+	}
+}
+
+// The end of that decay: a slot holding nothing the binary still carries. It
+// has no live verb to prove itself with, so only the block can report it.
+func TestSlotWhereEveryAlternativeIsStaleIsReported(t *testing.T) {
+	files := map[string]string{
+		"SPEC.md": "# Spec\n\n```sh\ntool init|validate|plan\ntool pin|frob\n```\n",
+	}
+	repo := verbTool(t, files, "init", "validate", "plan")
+	got := runIn(t, "SURF-101", surfaceDocs("SPEC.md"), repo)
+	if len(got) != 2 {
+		t.Fatalf("got %v, want a finding for each stale alternative", got)
+	}
+	for _, want := range []string{"`tool frob`", "`tool pin`"} {
+		if !strings.Contains(got[0].Message+got[1].Message, want) {
+			t.Errorf("got %v, want one naming %s", got, want)
+		}
+	}
+}
+
+// The block rule cannot be allowed to swallow a pipeline that happens to sit
+// in a surface block, which is what the shell-filter guard is for. Each of
+// these is a program a document pours a command into, and `rg` is here because
+// widening the list past the coreutils is what keeps the guard honest.
+func TestAPipelineBesideASynopsisIsNotReadAsOne(t *testing.T) {
+	for _, sink := range []string{"grep", "rg", "jq", "less", "xclip"} {
+		t.Run(sink, func(t *testing.T) {
+			files := map[string]string{
+				"SPEC.md": "# Spec\n\n```sh\ntool init|validate|plan\ntool manual|" +
+					sink + " doctor\n```\n",
+			}
+			repo := verbTool(t, files, "init", "validate", "plan", "manual", "doctor")
+			if got := runIn(t, "SURF-101", surfaceDocs("SPEC.md"), repo); len(got) != 0 {
+				t.Errorf("a pipeline into %s was read as alternatives: %v", sink, got)
+			}
+		})
+	}
+}
+
+// The limit of the block rule, asserted so that it stays a decision rather
+// than becoming an accident. A lone two-way slot has nothing to prove itself
+// against, and reading one as alternatives would report the far side of every
+// tight pipeline a document quotes.
+func TestALoneTwoWaySlotIsNotReadAsASynopsis(t *testing.T) {
+	files := map[string]string{
+		"README.md": "# R\n\n```sh\ntool manual|pin\n```\n",
+	}
+	repo := verbTool(t, files, "manual", "doctor")
+	if got := runIn(t, "SURF-101", surfaceDocs("README.md"), repo); len(got) != 0 {
+		t.Errorf("a lone two-way slot reported %v", got)
+	}
+}
+
+// surfaceSectionDocs is surfaceDocs with a section nominated as the one that
+// states the command surface.
+func surfaceSectionDocs(doc, sect string) config.Docs {
+	docs := surfaceDocs(doc)
+	docs.Surface.SurfaceSection = sect
+	return docs
+}
+
+// A verb the rest of the set documents thoroughly is still missing from the
+// section that claims to state the surface, which is what SURF-102 cannot see.
+func TestSurfaceSectionMissingAVerbIsReported(t *testing.T) {
+	files := map[string]string{
+		"SPEC.md": "# Spec\n\n### 3.1 The surface\n\n```sh\ntool init|validate\n```\n\n" +
+			"### 3.2 Elsewhere\n\n```sh\ntool orientation\n```\n",
+	}
+	repo := verbTool(t, files, "init", "validate", "orientation")
+	got := runIn(t, "SURF-105", surfaceSectionDocs("SPEC.md", "SPEC.md#3.1"), repo)
+	if len(got) != 1 || !strings.Contains(got[0].Message, "orientation") {
+		t.Fatalf("got %v, want one finding naming orientation", got)
+	}
+}
+
+// The same section with the verb in it, which is the case the rule has to stay
+// quiet on.
+func TestCompleteSurfaceSectionIsNotReported(t *testing.T) {
+	files := map[string]string{
+		"SPEC.md": "# Spec\n\n### 3.1 The surface\n\n```sh\ntool init|validate|orientation\n```\n",
+	}
+	repo := verbTool(t, files, "init", "validate", "orientation")
+	if got := runIn(t, "SURF-105", surfaceSectionDocs("SPEC.md", "SPEC.md#3.1"), repo); len(got) != 0 {
+		t.Errorf("a section naming every verb reported %v", got)
+	}
+}
+
+// A project that has not nominated a section has to learn it lost the check.
+func TestSurfaceSectionSkipsWhenNotConfigured(t *testing.T) {
+	files := map[string]string{"SPEC.md": "# Spec\n"}
+	repo := verbTool(t, files, "init")
+	got := runIn(t, "SURF-105", surfaceDocs("SPEC.md"), repo)
+	if len(got) != 1 || got[0].Severity != lint.Skip {
+		t.Errorf("got %v, want a skip", got)
+	}
+}
+
 func TestUndocumentedEnvIsReported(t *testing.T) {
 	files := map[string]string{
 		"main.go":   "package main\nfunc f() { _ = os.Getenv(\"CS_T_SECRET\") }\n",
@@ -239,8 +349,8 @@ func TestEveryRuleIsExplained(t *testing.T) {
 			t.Errorf("%s has no title or no reason", r.ID)
 		}
 	}
-	if len(seen) != 9 {
-		t.Errorf("%d rules are registered, want 9", len(seen))
+	if len(seen) != 10 {
+		t.Errorf("%d rules are registered, want 10", len(seen))
 	}
 }
 

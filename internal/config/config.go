@@ -107,6 +107,11 @@ type Surface struct {
 	// ToolPath points at the binary this checkout builds, so a check reads
 	// this tree rather than whatever the developer installed last.
 	ToolPath string `yaml:"toolPath"`
+	// SurfaceSection is the section that states the command surface, written
+	// as `DOC.md#heading`, where the heading is the text its own heading
+	// starts with. Its fenced blocks are held against the verbs the binary
+	// carries. Empty leaves that check unrun, and it reports the skip.
+	SurfaceSection string `yaml:"surfaceSection"`
 	// EnvPrefix is the variable prefix this tool reads, guessed from the tool
 	// name when empty.
 	EnvPrefix string `yaml:"envPrefix"`

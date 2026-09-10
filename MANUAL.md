@@ -197,6 +197,7 @@ set owes the caller who arrives through it.
 | `SURF-102` | error | Every command the tool carries is documented. |
 | `SURF-103` | warning | Every flag the tool carries is documented. |
 | `SURF-104` | error | Every flag a document attributes to the tool exists. |
+| `SURF-105` | error | The section that states the command surface names every verb. |
 | `SURF-201` | error | Every environment variable the code reads is documented. |
 | `SURF-202` | warning | Every environment variable a document names is read. |
 | `SURF-301` | error | A sample output is what the command prints today. |
@@ -260,6 +261,7 @@ two halves would then disagree about which pages this repository publishes.
 |---|---|---|
 | `tool` | inferred | The command name. |
 | `toolPath` | `bin/<tool>` | The binary this checkout builds, preferred over one on the path. |
+| `surfaceSection` | empty | The section that states the command surface, as `DOC.md#heading`. Empty disables `SURF-105`. |
 | `envPrefix` | from the tool name | The variable prefix this tool reads. |
 | `envInternal` | empty | Variable to why it is deliberately undocumented. |
 | `safeVerbs` | empty | Verbs a sample check may re-run. An empty list disables that rule. |

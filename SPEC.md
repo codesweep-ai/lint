@@ -417,14 +417,25 @@ able to notice, and the first differing line is where a rebuild shows its work.*
 
 **R64.** A verb slot written as pipe-separated alternatives, `tool a|b|c`,
 **MUST** be resolved one alternative at a time, and a shell pipeline **MUST
-NOT** be read as one. *A synopsis is the most compact form a spec section or a
-man page states a surface in, and a stale verb inside one is invisible to a
-check that reads the whole slot as a single word.*
+NOT** be read as one. A slot its own parts cannot settle **MUST** be read as
+alternatives where another line in the same fenced block settles it. A slot
+naming a program that reads a stream **MUST** be read as a pipeline. *A
+synopsis is the most compact form a spec section or a man page states a surface
+in, and a stale verb inside one is invisible to a check that reads the whole
+slot as a single word. A slot loses its alternatives one at a time, so the
+evidence for its shape thins exactly as the drift grows. The block it sits in
+is what still carries that evidence.*
 
 **R65.** Every rule in this linter **MUST** report a skip of its own where
 there is no binary to ask. *A project that has not wired a build dependency
 still runs the linter, and one collective failure would tell it nothing about
 which checks it lost.*
+
+**R66.** Where a section is nominated as the one that states the command
+surface, every top-level verb the binary carries **MUST** be named in it. *A
+reader learns what a tool does from the section that claims to be its surface.
+A verb documented only somewhere else is one they never meet, and a check the
+whole document set can satisfy is what hides that.*
 
 ## 5. Data model
 
@@ -459,6 +470,7 @@ docs:
   surface:
     tool: ""               # the command name
     toolPath: ""           # the binary this checkout builds
+    surfaceSection: ""     # the section that states the command surface
     envPrefix: ""          # the variable prefix this tool reads
     envInternal: {}        # variable -> why it is deliberately undocumented
     safeVerbs: []          # verbs a sample check may re-run
@@ -568,7 +580,7 @@ test run and gated at a floor.
 
 ## 8. Conformance
 
-An implementation conforms when it satisfies R1 through R65, and when:
+An implementation conforms when it satisfies R1 through R66, and when:
 
 1. `cs-lint <linter> --explain` prints every rule it carries, with its reason.
 2. Every rule that reports a finding appears in that listing.

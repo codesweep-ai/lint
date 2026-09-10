@@ -31,12 +31,13 @@ var rules = []rule{{
 		carried := set.Verbs()
 		named := map[string]string{}
 		for _, block := range set.Blocks() {
+			synopsis := statesAlternatives(block, tool, carried)
 			for _, command := range block.Commands {
 				words := strings.Fields(command)
 				if len(words) == 0 || filepath.Base(words[0]) != tool {
 					continue
 				}
-				for _, path := range verbPaths(words[1:], carried) {
+				for _, path := range verbPaths(words[1:], carried, synopsis) {
 					key := strings.Join(path, " ")
 					if _, seen := named[key]; !seen {
 						named[key] = block.Where()
@@ -149,6 +150,73 @@ var rules = []rule{{
 			}
 		}
 		return out
+	},
+}, {
+	id: "SURF-105", severity: lint.Error,
+	title: "The section that states the command surface names every verb",
+	why: "A section that announces itself as the command surface is where a reader goes to " +
+		"learn what the tool does, so a verb missing there is missing, however thoroughly " +
+		"another page documents it.",
+	check: func(l *Linter) []lint.Problem {
+		set := l.set
+		if l.cfg.SurfaceSection == "" {
+			return []lint.Problem{lint.Skipf("SURF-105", "no surfaceSection configured")}
+		}
+		if set.Binary() == "" {
+			return []lint.Problem{lint.Skipf("SURF-105", "no %s binary to ask", set.Tool())}
+		}
+		doc, heading, _ := strings.Cut(l.cfg.SurfaceSection, "#")
+		body, ok := set.Text(doc)
+		if !ok {
+			return []lint.Problem{lint.Skipf("SURF-105",
+				"surfaceSection names %s, which is not in the document set", doc)}
+		}
+		first, last, ok := section(body, heading)
+		if !ok {
+			return []lint.Problem{lint.Skipf("SURF-105", "%s has no section %q", doc, heading)}
+		}
+		tool := set.Tool()
+		carried := set.Verbs()
+		named := map[string]bool{}
+		for _, block := range set.Blocks() {
+			if block.Doc != doc || block.Line < first || block.Line >= last {
+				continue
+			}
+			synopsis := statesAlternatives(block, tool, carried)
+			for _, command := range block.Commands {
+				words := strings.Fields(command)
+				if len(words) == 0 || filepath.Base(words[0]) != tool {
+					continue
+				}
+				for _, path := range verbPaths(words[1:], carried, synopsis) {
+					named[path[0]] = true
+				}
+			}
+		}
+		// A section naming nothing is a heading that has moved, rather than a
+		// surface that lost every verb at once, and reporting the whole tree
+		// would bury that.
+		if len(named) == 0 {
+			return []lint.Problem{lint.Skipf("SURF-105",
+				"%s names no %s command", l.cfg.SurfaceSection, tool)}
+		}
+		var missing []string
+		for _, verb := range lint.SortedKeys(carried) {
+			// A synopsis states the verbs a reader reaches first. What hangs
+			// below one of them is the manual's to document, and SURF-102
+			// holds that.
+			if generated[verb] || strings.Contains(verb, " ") || named[verb] {
+				continue
+			}
+			missing = append(missing, verb)
+		}
+		if len(missing) == 0 {
+			return nil
+		}
+		return []lint.Problem{lint.Errorf("SURF-105",
+			"%s states the command surface and does not name %d verb(s) the binary carries: %s",
+			l.cfg.SurfaceSection, len(missing), strings.Join(missing, ", ")).
+			At(doc + ":" + strconv.Itoa(first))}
 	},
 }, {
 	id: "SURF-201", severity: lint.Error,
@@ -412,10 +480,10 @@ var rules = []rule{{
 // A path is the longest run of verbs the tool carries, plus the word after it.
 // That word is the claim: everything before it resolved, so a name the binary
 // rejects there is the document naming a command that is gone.
-func verbPaths(words []string, carried map[string]bool) [][]string {
+func verbPaths(words []string, carried map[string]bool, synopsis bool) [][]string {
 	var path []string
 	for _, word := range words {
-		if alts := alternatives(word, path, carried); alts != nil {
+		if alts := alternatives(word, path, carried, synopsis); alts != nil {
 			var out [][]string
 			for _, alt := range alts {
 				out = append(out, append(append([]string{}, path...), alt))
@@ -437,17 +505,102 @@ func verbPaths(words []string, carried map[string]bool) [][]string {
 	return [][]string{path}
 }
 
+// shellFilters are the programs a documented pipeline pours into: the readers,
+// the viewers and the clipboards. A part naming one of them, in a slot this
+// tool does not carry, is the far side of a pipeline rather than an
+// alternative, because alternatives fill one slot and are all the same tool's
+// own verbs.
+//
+// A verb the tool does carry is never read this way, so a tool with an `ls` or
+// a `sort` of its own keeps them in its synopsis. The cost is the other
+// direction: a verb that was deleted and happens to share a name here is read
+// as a pipeline and goes unreported. That is the trade a list like this makes,
+// and it cannot be complete, so it is worth widening whenever a real pipeline
+// is reported as a stale verb.
+var shellFilters = map[string]bool{
+	"ag": true, "awk": true, "base64": true, "bat": true, "cat": true,
+	"column": true, "comm": true, "cut": true, "fold": true, "fzf": true,
+	"grep": true, "head": true, "hexdump": true, "jq": true, "join": true,
+	"less": true, "more": true, "nl": true, "od": true, "paste": true,
+	"pbcopy": true, "rev": true, "rg": true, "sed": true, "shuf": true,
+	"sort": true, "tac": true, "tail": true, "tee": true, "tr": true,
+	"uniq": true, "wc": true, "wl-copy": true, "xargs": true, "xclip": true,
+	"xxd": true, "yq": true,
+}
+
+// generated are the verbs a command-line framework synthesises. Neither is
+// this project's own surface, so a hand-written section stating what the tool
+// does is complete without them.
+var generated = map[string]bool{"help": true, "completion": true}
+
+// section locates the section a heading opens, returning the line the heading
+// is on and the line after its last, so a block between the two belongs to it.
+// A section runs until the next heading at its own level or above, which is
+// what makes a subsection part of it.
+//
+// The heading is matched on the text it starts with, so `SPEC.md#3.1` finds
+// `### 3.1 The host command surface` and survives that title being reworded.
+func section(body, heading string) (first, last int, ok bool) {
+	lines := docset.SplitLines(body)
+	level := 0
+	for i, line := range lines {
+		depth := len(line) - len(strings.TrimLeft(line, "#"))
+		if depth == 0 || !strings.HasPrefix(line[depth:], " ") {
+			continue
+		}
+		text := strings.TrimSpace(line[depth:])
+		if first == 0 {
+			if text == heading || strings.HasPrefix(text, heading+" ") {
+				first, level = i+1, depth
+			}
+			continue
+		}
+		if depth <= level {
+			return first, i + 1, true
+		}
+	}
+	if first == 0 {
+		return 0, 0, false
+	}
+	return first, len(lines) + 1, true
+}
+
+// statesAlternatives reports whether a block states this tool's surface as a
+// synopsis, by holding one line whose verb slot resolves as alternatives on
+// its own evidence.
+//
+// A surface listing is a block of parallel lines, so the one line that proves
+// itself settles the shape of the rest. That is what lets a slot worn down to
+// `tool doctor|gone`, or to nothing the binary still carries, be read as the
+// alternatives it is. Neither can prove itself alone, and both are what a
+// synopsis decays into as verbs are deleted from it one at a time, which is
+// where a check that reads each line by itself goes quiet exactly as drift
+// begins.
+func statesAlternatives(block docset.Block, tool string, carried map[string]bool) bool {
+	for _, command := range block.Commands {
+		words := strings.Fields(command)
+		if len(words) == 0 || filepath.Base(words[0]) != tool {
+			continue
+		}
+		// Alternatives are the only reading that claims more than one path.
+		if len(verbPaths(words[1:], carried, false)) > 1 {
+			return true
+		}
+	}
+	return false
+}
+
 // alternatives reads a verb slot written as `a|b|c`, the compact form a spec
 // section or a man page states a surface in. It returns nil for anything else.
 //
 // A pipeline is written with spaces around the bar, so strings.Fields has
 // already broken one up before this sees it. What is left is a bar with no
-// spaces, which is either a synopsis or a pipeline somebody wrote tight, and
-// the second half of a tight pipeline names another program. Two of the parts
-// naming verbs this tool carries is what separates them: alternatives fill one
-// slot, so they are the same tool's verbs, and a stale one among them is the
-// finding.
-func alternatives(word string, path []string, carried map[string]bool) []string {
+// spaces, which is either a synopsis or a pipeline somebody wrote tight. Two
+// things separate them. A part naming a program that reads a stream is the far
+// side of a pipeline, whatever else the slot holds. Otherwise two of the parts
+// naming verbs this tool carries proves a synopsis by itself, and a block that
+// holds such a line elsewhere proves it for the lines that cannot.
+func alternatives(word string, path []string, carried map[string]bool, synopsis bool) []string {
 	if !strings.Contains(word, "|") {
 		return nil
 	}
@@ -464,9 +617,13 @@ func alternatives(word string, path []string, carried map[string]bool) []string 
 		}
 		if carried[name] {
 			known++
+			continue
+		}
+		if shellFilters[part] {
+			return nil
 		}
 	}
-	if known < 2 {
+	if known < 2 && !synopsis {
 		return nil
 	}
 	return parts

@@ -60,6 +60,11 @@ docs:
     tool: cs-lint
     toolPath: bin/cs-lint
 
+    # The section that states the command surface. Its block is held against
+    # the verbs the binary carries, so a new subcommand that never reaches the
+    # synopsis is reported rather than left for a reader to miss.
+    surfaceSection: MANUAL.md#Synopsis
+
     # Read-only, offline, and safe to run in a checkout on every gate. A verb
     # that writes belongs nowhere near this list: a checker that writes can
     # mask the staleness another gate exists to catch. Each entry is a verb
