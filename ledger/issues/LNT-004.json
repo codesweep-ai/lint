@@ -1,0 +1,25 @@
+{
+  "id": "LNT-004",
+  "title": "No rule holds the section that states the command surface",
+  "type": "defect",
+  "severity": "med",
+  "status": "closed",
+  "foundBy": "user report: \"The section also never gained orientation, added around the same time\"",
+  "opened": "2026-09-10",
+  "resolved": "2026-09-10",
+  "stint": "2026-09-10 session: close the two gaps LNT-002 left",
+  "evidence": {
+    "commits": [
+      "4ddfa91"
+    ],
+    "integrated": [],
+    "verified": "go test ./internal/surface/ -count=1: TestSurfaceSectionMissingAVerbIsReported, TestCompleteSurfaceSectionIsNotReported and TestSurfaceSectionSkipsWhenNotConfigured PASS. Against the built binary on codesweep-ai/campaign with `surfaceSection: SPEC.md#3.1`, dropping `orientation` from the 3.1 block reports `SURF-105 error SPEC.md#3.1 states the command surface and does not name 1 verb(s) the binary carries: orientation [SPEC.md:99]`, where it reported 0 errors before. On this repository with `surfaceSection: MANUAL.md#Synopsis`, dropping `cs-lint oss` from the synopsis reports SURF-105 naming `oss`. make check passes."
+  },
+  "resolution": "SURF-105 reads the fenced blocks under a nominated section and reports every top-level verb the binary carries that the section does not name. The section is named by `docs.surface.surfaceSection` as `DOC.md#heading`, because which section claims the surface is this project's knowledge rather than the linter's. A repository that nominates none gets a named skip, per R65. SPEC.md R66 states the requirement.",
+  "details": "SURF-102 matches each verb as a whole word against the whole document set flattened into one string, so no section is accountable for the surface it announces.\n\nMeasured on `codesweep-ai/campaign`: deleting `orientation` from the SPEC.md 3.1 synopsis reports 0 errors, because `orientation` still appears 13 times in MANUAL.md and 8 in PLAYBOOK.md. The section announces itself as \"the host command surface\" and can lose a verb in silence.\n\nThe match is also prose rather than surface. `wholeWord(last).MatchString(prose)` is satisfied by any use of the word. `orientation` is an ordinary English noun and a glossary term in that project, so SURF-102 would stay quiet even if no page named the command.\n\nLNT-002's closing note claims SURF-102 covers this case from the other side. That is wrong, and this record corrects it.\n\nThe gap is why `campaign` carried `internal/cli/manual_test.go:TestSpecNamesEveryCommand`, a Go test holding the block against its own command tree. Its comment names both drifts: `pin` outliving its removal by six months, and `orientation` never arriving. That is a workaround one project can afford and every other would have to rewrite for itself.",
+  "notes": [],
+  "links": [
+    "LNT-002",
+    "LNT-003"
+  ]
+}

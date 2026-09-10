@@ -21,7 +21,14 @@
     {
       "date": "2026-09-07",
       "text": "A synopsis whose alternatives are all stale is still missed, because the split needs two live verbs to tell a synopsis from a tight pipeline. SURF-102 covers that case from the other side: it reports the verbs the binary carries that no document names."
+    },
+    {
+      "date": "2026-09-10",
+      "text": "The claim above that SURF-102 covers the missing-verb direction is wrong. SURF-102 is satisfied by any page in the set naming the verb, so the section that states the surface can still omit one. LNT-004 corrects it and adds SURF-105. The two-live-verb threshold this record's resolution describes also misses a slot worn down to one live verb, which is LNT-003."
     }
   ],
-  "links": []
+  "links": [
+    "LNT-003",
+    "LNT-004"
+  ]
 }

@@ -1,0 +1,24 @@
+{
+  "id": "LNT-003",
+  "title": "A synopsis worn down to one live verb stops being read as alternatives",
+  "type": "defect",
+  "severity": "med",
+  "status": "closed",
+  "foundBy": "user report: \"SURF-101 misses a command synopsis written as pipe-separated alternatives\", re-filed against the shipped fix",
+  "opened": "2026-09-10",
+  "resolved": "2026-09-10",
+  "stint": "2026-09-10 session: close the two gaps LNT-002 left",
+  "evidence": {
+    "commits": [
+      "4ddfa91"
+    ],
+    "integrated": [],
+    "verified": "go test ./internal/surface/ -count=1: TestDecayedSlotInASurfaceBlockIsReported and TestSlotWhereEveryAlternativeIsStaleIsReported PASS. With the block rule disabled both fail with `got []`. Against the built binary on codesweep-ai/campaign, substituting SPEC.md 3.1 line 112: `cs-campaign doctor|frobnicate` reports 1 error and `cs-campaign frobnicate|widget|sprocket` reports 3, where both reported 0 before; `cs-campaign manual|grep doctor` stays quiet. `cs-lint surface` reports no new finding on lint, ledger, tracer, vcr, sandbox, campaign, ui or dashboards."
+  },
+  "resolution": "The synopsis-or-pipeline decision moved from the word to the block. A slot two of whose parts name carried verbs still proves itself. A block holding one such line now settles the ones that cannot: those down to a single live verb, and those down to none. A part naming a program that reads a stream marks a pipeline, whatever else the block holds. That is what keeps a tight pipeline beside a synopsis from being read as one. SPEC.md R64 states the requirement.",
+  "details": "LNT-002 closed the reported shape, and two remain. The fix reads a bar-joined slot as alternatives only where two or more parts name verbs the binary carries, which is what separates a synopsis from a pipeline written tight. That threshold switches the check off in the shape a synopsis decays into.\n\nThe table below was measured against `codesweep-ai/campaign`, substituting SPEC.md 3.1 line 112.\n\n| slot | live verbs | result |\n|---|---|---|\n| `doctor\\|manual\\|playbook\\|frobnicate` | 3 | caught |\n| `doctor\\|frobnicate` | 1 | missed |\n| `frobnicate\\|widget\\|sprocket` | 0 | missed |\n\nThe two-alternative row is the serious one. A slot loses its verbs one at a time, so on reaching two the check stops running. That check exists to catch the next deletion, and coverage is thinnest exactly where drift has already begun. The all-stale row is admitted in LNT-002's closing note.\n\nSURF-101's confirmation step cannot rescue either. It only ever confirms a stale verb the split already surfaced, and never sees a slot the split declined to open.",
+  "notes": [],
+  "links": [
+    "LNT-002"
+  ]
+}
