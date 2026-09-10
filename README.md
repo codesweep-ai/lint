@@ -45,6 +45,8 @@ it runs after the build.
 
 ```bash
 go install github.com/codesweep-ai/lint/cmd/cs-lint@latest
+# or, in a project with a package.json:
+#   npm install --save-dev @codesweep-ai/cs-lint
 
 cd ~/code/my-project
 cs-lint prose          # how the documents are written

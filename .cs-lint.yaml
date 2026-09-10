@@ -30,6 +30,10 @@ docs:
     # six-word sentence and reports a length that is not real.
     lowercaseStarters:
       - cs-lint
+      # The package manager and its runner, which the install routes name at the
+      # start of a sentence because that is how they are written everywhere.
+      - npm
+      - npx
 
     # Verbs the shared list does not carry. Only what is this project's own
     # belongs here; an ordinary English verb belongs in the shared list, where

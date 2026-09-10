@@ -9,7 +9,7 @@ Once it runs, [`MANUAL.md`](MANUAL.md) has the full surface and
 
 ## 1. Get it
 
-Three routes. Take the first one that fits.
+Four routes. Take the first one that fits.
 
 ### With the Go toolchain
 
@@ -33,6 +33,30 @@ A project that wants the same version for everybody pins it in its own
 ```bash
 go get -tool github.com/codesweep-ai/lint/cmd/cs-lint@latest
 go tool cs-lint prose
+```
+
+### With npm
+
+Take this route in a project that already has a `package.json`. No Go toolchain
+is involved: the binary is packaged for npm and installs like any other
+dev dependency.
+
+```bash
+npm install --save-dev @codesweep-ai/cs-lint
+npx cs-lint prose
+```
+
+What installs is a wrapper over four packages, one per platform. Each declares
+the operating system and architecture it holds a binary for. npm installs the
+one this machine can run and skips the other three, so a checkout downloads a
+single binary.
+
+A release takes the `latest` tag. Every commit on `main` also goes out under
+the `dev` tag, versioned by the commit it came from. A project pins that when it
+wants a fix before the next release:
+
+```bash
+npm install --save-dev @codesweep-ai/cs-lint@dev
 ```
 
 ### From a release archive
