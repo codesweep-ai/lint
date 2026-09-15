@@ -198,11 +198,13 @@ Four variables belong to this packaging rather than to the tool, which is why
 
 ### Dev builds
 
-The `npm` workflow publishes every commit on main to the `dev` channel, cutting
-no tag and making no release. It stores no credential: each package names the
-workflow as a trusted publisher. To publish one commit by hand, or to see what
-a publish would send without sending it, run it from the Actions tab or with
-`gh workflow run npm.yml`.
+The `npm` workflow publishes every commit on main that passes `ci` to the `dev`
+channel, cutting no tag and making no release. It runs when `ci` finishes, and
+skips a commit that is no longer main's head by then. It stores no credential:
+each package names the workflow as a trusted publisher. To publish one commit by
+hand, or to see what a publish would send without sending it, run it from the
+Actions tab or with `gh workflow run npm.yml`. A dispatched publish waits for
+`ci` to pass on that commit, and a dry run does not wait.
 
 Such a build takes its version from the binary, which is the commit's timestamp
 and its hash. A caret range never resolves to a prerelease, so one reaches
@@ -215,7 +217,8 @@ npm install --save-dev @codesweep-ai/lint@dev
 ### Images of the packages
 
 The `publish images` workflow pushes each commit on main and on this
-repository's pull requests to `ghcr.io/codesweep-ai/npm/lint:<version>`. Each
+repository's pull requests to `ghcr.io/codesweep-ai/npm/lint:<version>`. It runs
+as the last job of `ci`, once every other job has passed. Each
 image carries the last 20 versions of the five packages. `fetch` copies every
 tarball in the newest one into a directory, using podman or docker:
 

@@ -51,9 +51,9 @@ the operating system and architecture it holds a binary for. npm installs the
 one this machine can run and skips the other three, so a checkout downloads a
 single binary.
 
-A release takes the `latest` tag. Every commit on `main` also goes out under
-the `dev` tag, versioned by the commit it came from. A project pins that when it
-wants a fix before the next release:
+A release takes the `latest` tag. Every commit on `main` that passes CI also
+goes out under the `dev` tag, versioned by the commit it came from. A project
+pins that when it wants a fix before the next release:
 
 ```bash
 npm install --save-dev @codesweep-ai/lint@dev
