@@ -217,6 +217,13 @@ nobody who has not asked:
 npm install --save-dev @codesweep-ai/lint@dev
 ```
 
+In a fork, or a copy under another owner, `ci` still pushes the images but
+publishes nothing to npm, because the packages there take that owner's scope.
+That owner publishes them by running the `npm` workflow by hand, once each
+package names it as a trusted publisher. A trusted publisher can only be added
+to a package that exists, so the first publish runs `npm/publish.sh` from a
+machine logged in to npm.
+
 ### Images of the packages
 
 The `publish images` workflow pushes each commit on main and on this
