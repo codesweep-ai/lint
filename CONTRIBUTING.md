@@ -182,6 +182,9 @@ Keep that order in `npm/publish.sh`. The wrapper depends on packages that must
 already exist when it is published. Publish it first, and every install between
 the two commands resolves a binary the registry does not have.
 
+Running `npm/publish.sh` again is safe. It skips each package the registry
+already has from this commit, and stops on one it has from another commit.
+
 `make npm-local` is how to try a package before publishing it. It starts a
 registry and publishes to it, replacing what the last run published, so it can
 be run after every change. `npm/local-registry.sh stop` ends it.

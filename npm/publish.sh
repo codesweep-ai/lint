@@ -68,8 +68,42 @@ else
   echo "note: publishing without provenance, which needs CI. ${dry:+(dry run) }" >&2
 fi
 
+# A re-run publishes what the last run did not. npm refuses a version twice, so
+# a run that stopped after two of the four platform packages could otherwise
+# never finish, and a ci re-run on a commit already published would fail with
+# nothing left to do. The registry records the commit each version came from as
+# its gitHead: this commit's own are skipped, and a version published from any
+# other commit stops the run, because that is a version reused, not a re-run.
+head="$(git rev-parse HEAD)"
+
+# The commit the registry says published a package version, or nothing when it
+# does not hold that version. Any other failure stops the run rather than
+# reading as "not published yet".
+published_from() {
+  local err out
+  err="$(mktemp)"
+  if out="$(npm view "$1" gitHead 2>"$err")"; then
+    echo "${out:-an unrecorded commit}"
+  elif ! grep -q E404 "$err"; then
+    cat "$err" >&2
+    rm -f "$err"
+    return 1
+  fi
+  rm -f "$err"
+}
+
 for pkg in "${platforms[@]}" "$wrapper"; do
-  echo "==> $(node -p "require('./$pkg/package.json').name")"
+  name="$(node -p "require('./$pkg/package.json').name")"
+  echo "==> $name"
+  from="$(published_from "$name@$version")"
+  if [ "$from" = "$head" ]; then
+    echo "$name@$version is already published from this commit; skipping it."
+    continue
+  fi
+  if [ -n "$from" ]; then
+    echo "npm/publish.sh: $name@$version is already published, from $from rather than $head." >&2
+    exit 1
+  fi
   npm publish ${dry:+$dry} "${tag[@]}" "${provenance[@]}" --access public "$pkg"
 done
 
