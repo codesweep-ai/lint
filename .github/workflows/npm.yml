@@ -74,8 +74,3 @@ jobs:
         run: ./npm/publish.sh ${{ inputs.dry_run && '--dry-run' || '' }}
         env:
           CS_LINT_NPM_TAG: dev
-          # Bootstrap only. A trusted publisher can only be added to a package
-          # that exists, so the first publish needs a token. npm tries OIDC
-          # first and falls back to this. Remove it once `npm trust` names this
-          # workflow for all five packages.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
