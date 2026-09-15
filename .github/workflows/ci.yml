@@ -138,15 +138,3 @@ jobs:
         with:
           version: "~> v2"
           args: check
-
-  # The npm packages as images, pushed only from a commit every job above has
-  # passed. So every job above belongs in `needs`: one left out of it no longer
-  # holds the images back. npm-images.yml says why it is called from here.
-  images:
-    name: publish images
-    needs: [build-test, actionlint, prose, refs, oss, surface, ledger, release-check]
-    permissions:
-      contents: read
-      actions: read # the branch's earlier runs name the image to carry forward
-      packages: write # push the image
-    uses: ./.github/workflows/npm-images.yml

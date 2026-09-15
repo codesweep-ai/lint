@@ -217,8 +217,8 @@ nobody who has not asked:
 npm install --save-dev @codesweep-ai/lint@dev
 ```
 
-In a fork, or a copy under another owner, `ci` still pushes the images but
-publishes nothing to npm, because the packages there take that owner's scope.
+In a fork, or a copy under another owner, the images are still published but
+nothing goes to npm, because the packages there take that owner's scope.
 That owner publishes them by running the `npm` workflow by hand, once each
 package names it as a trusted publisher. A trusted publisher can only be added
 to a package that exists, so the first publish runs `npm/publish.sh` from a
@@ -226,11 +226,11 @@ machine logged in to npm.
 
 ### Images of the packages
 
-The `publish images` workflow pushes each commit on main and on this
-repository's pull requests to `ghcr.io/codesweep-ai/npm/lint:<version>`. It runs
-as the last job of `ci`, once every other job has passed. Each
-image carries the last 20 versions of the five packages. `fetch` copies every
-tarball in the newest one into a directory, using podman or docker:
+The `publish images` workflow pushes each commit on main that passes `ci` to
+`ghcr.io/codesweep-ai/npm/lint:<version>`, starting when `ci` finishes. Pull
+requests get no image. Each image carries the last 20 versions of the five
+packages. `fetch` copies every tarball in the newest one into a directory, using
+podman or docker:
 
 ```bash
 node npm/npm-images.mjs fetch --data ./data @codesweep-ai/lint
