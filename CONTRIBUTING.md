@@ -212,6 +212,21 @@ nobody who has not asked:
 npm install --save-dev @codesweep-ai/lint@dev
 ```
 
+### Images of the packages
+
+The `publish images` workflow pushes each commit on main and on this
+repository's pull requests to `ghcr.io/codesweep-ai/npm/lint:<version>`. Each
+image carries the last 20 versions of the five packages. `fetch` copies every
+tarball in the newest one into a directory, using podman or docker:
+
+```bash
+node npm/npm-images.mjs fetch --data ./data @codesweep-ai/lint
+```
+
+Point `overrides` at the tarballs with `file:` specs. A direct dependency needs
+the `file:` spec itself, because npm refuses to override one. The script is
+shared with ledger and ui, so change all three together.
+
 ## Adding a rule
 
 1. Decide which linter it belongs to, and give it the next identifier in that
