@@ -75,4 +75,4 @@ done
 
 echo
 echo "Published. Verify what a consumer gets:"
-echo "  npm view @codesweep-ai/cs-lint"
+echo "  npm view $(node -p "require('./$wrapper/package.json').name")"

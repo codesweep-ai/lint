@@ -137,16 +137,41 @@ function writeJSON(path, value) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+// Named for the repository that publishes them, so a fork publishes under its
+// owner's scope rather than this project's. GitHub Actions says which, and
+// elsewhere the GitHub remote this checkout tracks does (origin, unless the
+// branch tracks another). npm's provenance check needs that too: it refuses a
+// `repository` other than the one the run came from.
+function repositoryName() {
+  if (process.env.GITHUB_REPOSITORY) return process.env.GITHUB_REPOSITORY;
+  try {
+    const url = execFileSync("git", ["ls-remote", "--get-url"], {
+      cwd: ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    const m = url.trim().match(/[@/]github\.com[:/]([^/]+)\/([^/]+?)(?:\.git)?\/?$/);
+    if (m) return `${m[1]}/${m[2]}`;
+  } catch {
+    // No git or no checkout, which is a build of this project's own source.
+  }
+  return "codesweep-ai/lint";
+}
+
+const REPOSITORY = repositoryName();
+const WRAPPER = `@${REPOSITORY.split("/")[0].toLowerCase()}/cs-lint`;
+const HOMEPAGE = `https://github.com/${REPOSITORY}#readme`;
+
 const repository = {
   type: "git",
-  url: "git+https://github.com/codesweep-ai/lint.git",
+  url: `git+https://github.com/${REPOSITORY}.git`,
 };
 
 // The four platform packages. Each is a binary, a licence and a package.json
 // that says which machine it is for: no code, and nothing to run on install.
 const platformNames = [];
 for (const [target, { os, cpu, suffix }] of Object.entries(PLATFORMS)) {
-  const name = `@codesweep-ai/cs-lint-${suffix}`;
+  const name = `${WRAPPER}-${suffix}`;
   platformNames.push(name);
 
   const dir = join(OUT, `cs-lint-${suffix}`);
@@ -161,10 +186,10 @@ for (const [target, { os, cpu, suffix }] of Object.entries(PLATFORMS)) {
   writeJSON(join(dir, "package.json"), {
     name,
     version: VERSION,
-    description: `The cs-lint binary for ${os} ${cpu}. Installed by @codesweep-ai/cs-lint; not used directly.`,
+    description: `The cs-lint binary for ${os} ${cpu}. Installed by ${WRAPPER}; not used directly.`,
     license: "Apache-2.0",
     repository,
-    homepage: "https://github.com/codesweep-ai/lint#readme",
+    homepage: HOMEPAGE,
     // npm installs an optional dependency only where these match, which is what
     // makes the wrapper's four dependencies cost one download.
     os: [os],
@@ -183,22 +208,26 @@ for (const [target, { os, cpu, suffix }] of Object.entries(PLATFORMS)) {
     `# ${name}\n\n` +
       `The cs-lint binary for ${os} ${cpu}.\n\n` +
       `This package is one of four, and installing it directly is not the way in. ` +
-      `Install [\`@codesweep-ai/cs-lint\`](https://www.npmjs.com/package/@codesweep-ai/cs-lint), ` +
+      `Install [\`${WRAPPER}\`](https://www.npmjs.com/package/${WRAPPER}), ` +
       `which depends on all four optionally and resolves the one this machine can run.\n`,
   );
 
   carryLicence(dir);
 }
 
-// The wrapper, taken from the committed source with the version stamped into it
-// and into every dependency on a platform package. The pins are exact: a
-// wrapper that accepted a range could pair itself with a binary built from
-// different source.
+// The wrapper, taken from the committed source with the names and version
+// stamped into it and into every dependency on a platform package. The pins are
+// exact: a wrapper that accepted a range could pair itself with a binary built
+// from different source.
 const wrapperDir = join(OUT, "cs-lint");
 mkdirSync(join(wrapperDir, "bin"), { recursive: true });
 
 const wrapper = JSON.parse(readFileSync(join(NPM, "cs-lint", "package.json"), "utf8"));
+wrapper.name = WRAPPER;
 wrapper.version = VERSION;
+wrapper.repository = { ...wrapper.repository, ...repository };
+wrapper.homepage = HOMEPAGE;
+wrapper.bugs = { url: `https://github.com/${REPOSITORY}/issues` };
 wrapper.optionalDependencies = Object.fromEntries(
   platformNames.sort().map((name) => [name, VERSION]),
 );
@@ -212,7 +241,7 @@ chmodSync(join(wrapperDir, "bin", "cs-lint.mjs"), 0o755);
 carryLicence(wrapperDir);
 
 console.log(`cs-lint ${VERSION} -> npm/dist/`);
-for (const name of [...platformNames, "@codesweep-ai/cs-lint"].sort()) {
+for (const name of [...platformNames, WRAPPER].sort()) {
   console.log(`  ${name}`);
 }
 console.log(`\nPublish with:\n  npm/publish.sh`);

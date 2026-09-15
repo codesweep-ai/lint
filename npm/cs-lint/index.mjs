@@ -19,11 +19,15 @@ const require = createRequire(import.meta.url);
 // derived from a rule, because a platform nobody built for must be a lookup
 // miss that names the ones that exist, not a package name assembled from parts
 // that resolves to nothing.
+//
+// The scope is read from this package's own name, which npm/build.mjs sets to
+// the owner that published it, so a fork's build finds its own binaries.
+const SCOPE = require("./package.json").name.split("/")[0];
 const PACKAGES = {
-  "darwin arm64": "@codesweep-ai/cs-lint-darwin-arm64",
-  "darwin x64": "@codesweep-ai/cs-lint-darwin-x64",
-  "linux arm64": "@codesweep-ai/cs-lint-linux-arm64",
-  "linux x64": "@codesweep-ai/cs-lint-linux-x64",
+  "darwin arm64": `${SCOPE}/cs-lint-darwin-arm64`,
+  "darwin x64": `${SCOPE}/cs-lint-darwin-x64`,
+  "linux arm64": `${SCOPE}/cs-lint-linux-arm64`,
+  "linux x64": `${SCOPE}/cs-lint-linux-x64`,
 };
 
 // Raised when this platform has no build. Distinct from the class below,
