@@ -42,7 +42,7 @@ is involved: the binary is packaged for npm and installs like any other
 dev dependency.
 
 ```bash
-npm install --save-dev @codesweep-ai/cs-lint
+npm install --save-dev @codesweep-ai/lint
 npx cs-lint prose
 ```
 
@@ -56,7 +56,7 @@ the `dev` tag, versioned by the commit it came from. A project pins that when it
 wants a fix before the next release:
 
 ```bash
-npm install --save-dev @codesweep-ai/cs-lint@dev
+npm install --save-dev @codesweep-ai/lint@dev
 ```
 
 ### From a release archive

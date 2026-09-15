@@ -33,8 +33,8 @@ fi
 
 # The wrapper is named explicitly rather than found last by a glob, so a
 # renamed directory cannot reorder the publish into the unsafe order.
-wrapper="$dist/cs-lint"
-platforms=("$dist"/cs-lint-*)
+wrapper="$dist/lint"
+platforms=("$dist"/lint-*)
 
 [ -d "$wrapper" ] || {
   echo "npm/publish.sh: $wrapper is missing; the build did not finish." >&2

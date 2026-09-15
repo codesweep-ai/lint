@@ -1,4 +1,4 @@
-# @codesweep-ai/cs-lint
+# @codesweep-ai/lint
 
 > **Various linters: doc style, doc correctness, open-source readiness, and more.**
 
@@ -23,7 +23,7 @@ The linter is written in Go, and packaged here for npm projects.
 ## Quickstart
 
 ```bash
-npm install --save-dev @codesweep-ai/cs-lint
+npm install --save-dev @codesweep-ai/lint
 
 cd ~/code/my-project
 cs-lint prose          # how the documents are written

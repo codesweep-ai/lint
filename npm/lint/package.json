@@ -1,5 +1,5 @@
 {
-  "name": "@codesweep-ai/cs-lint",
+  "name": "@codesweep-ai/lint",
   "version": "0.0.0",
   "description": "Four linters over one repository: how its documents are written, whether every reference resolves, whether the documented interface is the real one, and what a published repository owes a reader.",
   "license": "Apache-2.0",
@@ -10,7 +10,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/codesweep-ai/lint.git",
-    "directory": "npm/cs-lint"
+    "directory": "npm/lint"
   },
   "homepage": "https://github.com/codesweep-ai/lint#readme",
   "bugs": {
@@ -41,9 +41,9 @@
     "NOTICE"
   ],
   "optionalDependencies": {
-    "@codesweep-ai/cs-lint-darwin-arm64": "0.0.0",
-    "@codesweep-ai/cs-lint-darwin-x64": "0.0.0",
-    "@codesweep-ai/cs-lint-linux-arm64": "0.0.0",
-    "@codesweep-ai/cs-lint-linux-x64": "0.0.0"
+    "@codesweep-ai/lint-darwin-arm64": "0.0.0",
+    "@codesweep-ai/lint-darwin-x64": "0.0.0",
+    "@codesweep-ai/lint-linux-arm64": "0.0.0",
+    "@codesweep-ai/lint-linux-x64": "0.0.0"
   }
 }

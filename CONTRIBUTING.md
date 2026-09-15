@@ -168,7 +168,7 @@ right, rather than only how to silence it.
 
 Every release also goes to npm as five packages: four carry the binary, one per
 platform goreleaser builds, and the wrapper picks the right one at run time.
-Only the wrapper is written by hand, under `npm/cs-lint/`. The other four are
+Only the wrapper is written by hand, under `npm/lint/`. The other four are
 generated from goreleaser's output, and nothing under `npm/dist/` is committed.
 
 ```bash
@@ -209,7 +209,7 @@ and its hash. A caret range never resolves to a prerelease, so one reaches
 nobody who has not asked:
 
 ```bash
-npm install --save-dev @codesweep-ai/cs-lint@dev
+npm install --save-dev @codesweep-ai/lint@dev
 ```
 
 ## Adding a rule

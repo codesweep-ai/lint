@@ -159,7 +159,7 @@ function repositoryName() {
 }
 
 const REPOSITORY = repositoryName();
-const WRAPPER = `@${REPOSITORY.split("/")[0].toLowerCase()}/cs-lint`;
+const WRAPPER = `@${REPOSITORY.split("/")[0].toLowerCase()}/lint`;
 const HOMEPAGE = `https://github.com/${REPOSITORY}#readme`;
 
 const repository = {
@@ -174,7 +174,7 @@ for (const [target, { os, cpu, suffix }] of Object.entries(PLATFORMS)) {
   const name = `${WRAPPER}-${suffix}`;
   platformNames.push(name);
 
-  const dir = join(OUT, `cs-lint-${suffix}`);
+  const dir = join(OUT, `lint-${suffix}`);
   mkdirSync(join(dir, "bin"), { recursive: true });
 
   const binary = join(dir, "bin", "cs-lint");
@@ -219,10 +219,10 @@ for (const [target, { os, cpu, suffix }] of Object.entries(PLATFORMS)) {
 // stamped into it and into every dependency on a platform package. The pins are
 // exact: a wrapper that accepted a range could pair itself with a binary built
 // from different source.
-const wrapperDir = join(OUT, "cs-lint");
+const wrapperDir = join(OUT, "lint");
 mkdirSync(join(wrapperDir, "bin"), { recursive: true });
 
-const wrapper = JSON.parse(readFileSync(join(NPM, "cs-lint", "package.json"), "utf8"));
+const wrapper = JSON.parse(readFileSync(join(NPM, "lint", "package.json"), "utf8"));
 wrapper.name = WRAPPER;
 wrapper.version = VERSION;
 wrapper.repository = { ...wrapper.repository, ...repository };
@@ -234,9 +234,9 @@ wrapper.optionalDependencies = Object.fromEntries(
 writeJSON(join(wrapperDir, "package.json"), wrapper);
 
 for (const f of ["index.mjs", "README.md"]) {
-  copyFileSync(join(NPM, "cs-lint", f), join(wrapperDir, f));
+  copyFileSync(join(NPM, "lint", f), join(wrapperDir, f));
 }
-copyFileSync(join(NPM, "cs-lint", "bin", "cs-lint.mjs"), join(wrapperDir, "bin", "cs-lint.mjs"));
+copyFileSync(join(NPM, "lint", "bin", "cs-lint.mjs"), join(wrapperDir, "bin", "cs-lint.mjs"));
 chmodSync(join(wrapperDir, "bin", "cs-lint.mjs"), 0o755);
 carryLicence(wrapperDir);
 

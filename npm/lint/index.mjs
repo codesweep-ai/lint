@@ -24,10 +24,10 @@ const require = createRequire(import.meta.url);
 // the owner that published it, so a fork's build finds its own binaries.
 const SCOPE = require("./package.json").name.split("/")[0];
 const PACKAGES = {
-  "darwin arm64": `${SCOPE}/cs-lint-darwin-arm64`,
-  "darwin x64": `${SCOPE}/cs-lint-darwin-x64`,
-  "linux arm64": `${SCOPE}/cs-lint-linux-arm64`,
-  "linux x64": `${SCOPE}/cs-lint-linux-x64`,
+  "darwin arm64": `${SCOPE}/lint-darwin-arm64`,
+  "darwin x64": `${SCOPE}/lint-darwin-x64`,
+  "linux arm64": `${SCOPE}/lint-linux-arm64`,
+  "linux x64": `${SCOPE}/lint-linux-x64`,
 };
 
 // Raised when this platform has no build. Distinct from the class below,

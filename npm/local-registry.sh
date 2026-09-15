@@ -91,8 +91,8 @@ goreleaser build --snapshot --clean --skip=before > "$STATE/build.log" 2>&1 ||
 echo "==> packaging"
 node npm/build.mjs --dev
 
-version="$(node -p "require('./npm/dist/cs-lint/package.json').version")"
-wrapper="$(node -p "require('./npm/dist/cs-lint/package.json').name")"
+version="$(node -p "require('./npm/dist/lint/package.json').version")"
+wrapper="$(node -p "require('./npm/dist/lint/package.json').name")"
 
 # A version cannot be published twice, and a script meant to be run after every
 # change would stop at the second run. Dropping the previous copy first is what
