@@ -6,8 +6,8 @@
 /bin/
 /dist/
 
-# The registry this machine runs to try the packages out: verdaccio itself, its
-# storage, and the throwaway credentials for it.
+# What `make npm-local` keeps between runs: the tarballs it serves, the build
+# log, the server's pid and log, and the npmrc it writes.
 /npm/.local-registry/
 
 # The npm packages, which are generated from /dist/ at release time. The five

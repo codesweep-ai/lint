@@ -1,18 +1,17 @@
 name: publish images
 
-# Publish a commit's npm packages as a container image named like the wrapper
-# package: ghcr.io/<owner>/npm/lint:<version>. It holds this version's five
-# tarballs, and carries the last 20 versions of each forward from main's
-# previous image. A client copies the tarballs out with
-# `node npm/npm-images.mjs fetch`, and prune-images.yml expires the old images.
+# Publish a commit's npm packages as container images, one per package version:
+# ghcr.io/<owner>/npm/<package>:<version>, the wrapper and each platform package
+# in a repository of its own. npm/publish-images.sh builds each image with
+# cs-npmrevs (https://github.com/codesweep-ai/npmrevs) and pushes it with podman.
+# prune-images.yml expires the old ones.
 #
 # Nothing here reaches npm. It is a workflow of its own, so its token cannot
 # publish to npm, and its builds show on the CI dashboard as a row of their own.
 #
 # It starts when ci finishes, and publishes only a push to main whose ci run
 # passed, so no image comes from a commit that fails any ci job. Pull requests
-# get none: `fetch` takes the newest image whatever branch built it, so an image
-# of a pull request would stand in for main's.
+# get none.
 on:
   workflow_run:
     workflows: [ci]
@@ -20,11 +19,10 @@ on:
 
 permissions:
   contents: read
-  actions: read # ci's earlier runs on main name the image to carry forward
-  packages: write # push the image
+  packages: write # push the images
 
-# One build at a time, so each finds the one before it finished. Not cancelled,
-# because a superseded build still carries its packages forward.
+# One build at a time. Not cancelled: every build publishes its own versions,
+# and a superseded one still has them to publish.
 concurrency:
   group: npm-images
   cancel-in-progress: false
@@ -34,8 +32,7 @@ jobs:
     name: publish images
     # A run started by ci finishing holds a token that can write packages even
     # when ci ran for a fork's pull request. Asking for a push to main is what
-    # keeps unreviewed code away from that token, as well as what keeps pull
-    # requests out of the images.
+    # keeps unreviewed code away from that token.
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
@@ -74,8 +71,10 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: echo "$GHCR_TOKEN" | podman login ghcr.io -u '${{ github.actor }}' --password-stdin
 
-      # The wrapper first, because the first package names the image.
+      # The platform packages first and the wrapper last, as npm/publish.sh
+      # publishes them, so a wrapper is never visible before what it depends on.
       - name: publish
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node npm/npm-images.mjs publish npm/dist/lint npm/dist/lint-*/
+          # The version go.mod pins, as `make npm-local` runs it.
+          NPMREVS: go tool cs-npmrevs
+        run: ./npm/publish-images.sh npm/dist/lint-*/ npm/dist/lint

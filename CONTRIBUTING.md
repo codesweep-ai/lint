@@ -174,7 +174,7 @@ generated from goreleaser's output, and nothing under `npm/dist/` is committed.
 ```bash
 make npm-snapshot   # build every target, package it, and show what would publish
 make npm-build      # package whatever dist/ already holds
-make npm-local      # publish to a registry on this machine, and print its address
+make npm-local      # serve a dev build from this machine, and print how to install it
 make npm-publish    # platform packages first, then the wrapper
 ```
 
@@ -185,11 +185,16 @@ the two commands resolves a binary the registry does not have.
 Running `npm/publish.sh` again is safe. It skips each package the registry
 already has from this commit, and stops on one it has from another commit.
 
-`make npm-local` is how to try a package before publishing it. It starts a
-registry and publishes to it, replacing what the last run published, so it can
-be run after every change. `npm/local-registry.sh stop` ends it.
+`make npm-local` is how to try a package before publishing it. It packs the five
+packages into `npm/.local-registry/data/` and serves them with
+[cs-npmrevs](https://github.com/codesweep-ai/npmrevs), which makes every
+revision of an npm package installable without publishing it. It runs the
+cs-npmrevs that `go.mod` pins, and takes every other package from npmjs.com. It
+prints the install command, with the exact version it built. Run it after every
+change: a rebuild of the same commit replaces the last run's tarballs.
+`npm/local-registry.sh stop` stops the server.
 
-Four variables belong to this packaging rather than to the tool, which is why
+These variables belong to the packaging rather than to the tool, which is why
 [`MANUAL.md`](MANUAL.md) does not carry them:
 
 | Variable | Effect |
@@ -197,7 +202,9 @@ Four variables belong to this packaging rather than to the tool, which is why
 | `CS_LINT_BINARY` | The binary the npm wrapper runs, so the packaging can be tried against a local build. |
 | `CS_LINT_NPM_VERSION` | The version the generated packages carry. A tagged release supplies its own. |
 | `CS_LINT_NPM_TAG` | The channel a prerelease is published to, `next` unless it says otherwise. |
-| `CS_LINT_REGISTRY_PORT` | The port the registry on this machine listens on, 4873 unless it says otherwise. |
+| `CS_LINT_REGISTRY_PORT` | The port `make npm-local` serves on, 4873 unless it says otherwise. |
+| `NPMREVS` | The command `npm/local-registry.sh` and `npm/publish-images.sh` run as cs-npmrevs. `npm/local-registry.sh`, `make images-snapshot` and the workflow use the pinned one, and `npm/publish-images.sh` run by hand uses `cs-npmrevs` from the PATH. |
+| `REGISTRY` | The registry `npm/publish-images.sh` publishes to, `ghcr.io` unless it says otherwise. |
 
 ### Dev builds
 
@@ -226,19 +233,18 @@ machine logged in to npm.
 
 ### Images of the packages
 
-The `publish images` workflow pushes each commit on main that passes `ci` to
-`ghcr.io/codesweep-ai/npm/lint:<version>`, starting when `ci` finishes. Pull
-requests get no image. Each image carries the last 20 versions of the five
-packages. `fetch` copies every tarball in the newest one into a directory, using
-podman or docker:
+The `publish images` workflow pushes each commit on main that passes `ci` as
+five images, one per package, such as `ghcr.io/codesweep-ai/npm/lint:<version>`.
+It starts when `ci` finishes, and pull requests get no image. The `prune-images`
+workflow keeps the newest 20 versions of each package. Those images let a team
+of AI coding agents install builds that are not yet meant for people:
+[cs-npmrevs](https://github.com/codesweep-ai/npmrevs) serves them to npm, or
+copies them into a directory.
 
-```bash
-node npm/npm-images.mjs fetch --data ./data @codesweep-ai/lint
-```
-
-Point `overrides` at the tarballs with `file:` specs. A direct dependency needs
-the `file:` spec itself, because npm refuses to override one. The script is
-shared with ledger and ui, so change all three together.
+`npm/publish-images.sh` builds each image with cs-npmrevs and pushes it with
+podman. The workflow is what runs it, and `make images-snapshot` builds the
+images of whatever `npm/dist/` holds, pushing nothing. The script is shared with
+npmrevs, ledger and ui, so change all four together.
 
 ## Adding a rule
 

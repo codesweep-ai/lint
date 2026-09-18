@@ -61,7 +61,7 @@ COVER_MIN  ?= 70
 
 .PHONY: help tidy-check embed-check build build-go install uninstall test test-race coverage coverage-check ci \
         vet fmt fmt-check check lint deadcode actionlint prose refs oss surface self ledger \
-        snapshot release release-check clean npm-build npm-snapshot npm-local npm-publish
+        snapshot release release-check clean npm-build npm-snapshot npm-local npm-publish images-snapshot
 
 .DEFAULT_GOAL := help
 
@@ -357,13 +357,17 @@ npm-snapshot:
 	@CS_LINT_NPM_VERSION='$(NPM_SNAPSHOT_VERSION)' node npm/build.mjs
 	@./npm/publish.sh --dry-run
 
-## npm-local: publish to a registry on this machine, and print where to browse it
+## npm-local: serve a dev build from this machine, and print how to install it
 npm-local:
 	./npm/local-registry.sh
 
 ## npm-publish: publish npm/dist to the registry (platform packages first)
 npm-publish:
 	./npm/publish.sh
+
+## images-snapshot: build the image of every package in npm/dist, and push nothing
+images-snapshot:
+	NPMREVS="$$(go tool -n cs-npmrevs)" ./npm/publish-images.sh --dry-run npm/dist/lint-*/ npm/dist/lint
 
 ## clean: remove build output and coverage data
 clean:
