@@ -10,9 +10,11 @@
 #   npm/local-registry.sh          # build, publish, print the URL
 #   npm/local-registry.sh stop     # stop it again
 #
-# Nothing here touches ~/.npmrc or the real registry. The credentials are a
-# throwaway token in the state directory, passed with NPM_CONFIG_USERCONFIG so
-# that no npm command in this script can reach npmjs.com by accident.
+# Nothing here touches ~/.npmrc or the real registry. The npm config is a file
+# in the state directory, passed with NPM_CONFIG_USERCONFIG, that sends the
+# packages' own scope here and leaves every other package on npmjs.com. Its only
+# credentials are a throwaway token for localhost, so nothing this script
+# publishes can land anywhere else.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -53,6 +55,10 @@ fi
 
 # Anonymous publish, because the only client is this script. A registry that
 # holds four binaries and answers on localhost has nothing to authenticate.
+# No uplink either. Verdaccio refuses the first publish of a package an uplink
+# already has, and takes an uplink's dist-tag over its own when that is newer,
+# so a dev build CI published to npmjs.com would stand in for the one built
+# here.
 cat > "$CONFIG" <<EOF
 storage: ./storage
 auth:
@@ -66,9 +72,6 @@ packages:
     unpublish: \$anonymous
 log: { type: stdout, format: pretty, level: warn }
 EOF
-
-# npm sends credentials even where none are wanted, so it is given some.
-printf 'registry=%s/\n//localhost:%s/:_authToken=local-only\n' "$URL" "$PORT" > "$NPMRC"
 
 if running; then
   echo "==> registry already up at $URL"
@@ -93,6 +96,15 @@ node npm/build.mjs --dev
 
 version="$(node -p "require('./npm/dist/lint/package.json').version")"
 wrapper="$(node -p "require('./npm/dist/lint/package.json').name")"
+
+# Only the packages' own scope comes from this registry. It holds nothing else
+# and has no uplink to fetch it from, so an install takes every other package
+# from npmjs.com as usual. The scope is read from the build rather than written
+# here, because a fork publishes under its owner's, and a scope named here would
+# send a fork's publish to npmjs.com. npm sends credentials even where none are
+# wanted, so it is given some.
+printf '%s:registry=%s/\n//localhost:%s/:_authToken=local-only\n' \
+  "${wrapper%%/*}" "$URL" "$PORT" > "$NPMRC"
 
 # A version cannot be published twice, and a script meant to be run after every
 # change would stop at the second run. Dropping the previous copy first is what
