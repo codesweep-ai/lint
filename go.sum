@@ -4,8 +4,8 @@ github.com/clipperhouse/uax29/v2 v2.7.0 h1:+gs4oBZ2gPfVrKPthwbMzWZDaAFPGYK72F0NJ
 github.com/clipperhouse/uax29/v2 v2.7.0/go.mod h1:EFJ2TJMRUaplDxHKj1qAEhCtQPW2tJSwu5BF98AuoVM=
 github.com/codesweep-ai/ledger v0.0.0-20260918043804-bbe29a48e449 h1:1iXrsoRodTWo8iWbrGeflBQor3/1zOoww96mk4g48FQ=
 github.com/codesweep-ai/ledger v0.0.0-20260918043804-bbe29a48e449/go.mod h1:Z6OBks8EuVIoFs6g5lrNk/4qQq2iL6a+RiVH9u08zmI=
-github.com/codesweep-ai/npmrevs v0.0.0-20260920013245-e20d253a40d8 h1:V8NAn7cXjRzzeM0oXxEDC3P652uKzTb+IYNw0U9Q3LA=
-github.com/codesweep-ai/npmrevs v0.0.0-20260920013245-e20d253a40d8/go.mod h1:0BJWIfDIaJA77Rf5tH5ce9vmtntIPGS8JWROvTYZH6I=
+github.com/codesweep-ai/npmrevs v0.0.0-20260920020255-40937e144093 h1:574cVRBeozVZpnALEM9s9kKNRXfQ8/iHfsXT5D1o/Tk=
+github.com/codesweep-ai/npmrevs v0.0.0-20260920020255-40937e144093/go.mod h1:0BJWIfDIaJA77Rf5tH5ce9vmtntIPGS8JWROvTYZH6I=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
