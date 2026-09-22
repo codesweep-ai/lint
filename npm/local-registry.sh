@@ -9,7 +9,14 @@
 # packages built here, and passes every other package through from npmjs.com.
 #
 #   npm/local-registry.sh          # build, package, serve, and print how to install
+#   npm/local-registry.sh pack     # build and package only, for a later build to install
 #   npm/local-registry.sh stop     # stop the server again
+#
+# The packages go into cs-npmrevs's own data directory, which every project's
+# build shares: a later build that installs through cs-npmrevs on this port finds
+# them there. The server is started as the with-npmrevs.sh scripts in ledger,
+# tracer and campaign start one, with the @codesweep-ai images on ghcr.io as
+# well, so a build using either finds what it needs on the port.
 #
 # Nothing here touches ~/.npmrc or npmjs.com. The npmrc it writes lives in the
 # state directory and is passed with NPM_CONFIG_USERCONFIG, and cs-npmrevs refuses
@@ -18,10 +25,13 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-PORT="${CS_LINT_REGISTRY_PORT:-4873}"
+PORT="${CS_NPMREVS_PORT:-4875}"
 URL="http://127.0.0.1:$PORT"
 STATE="npm/.local-registry"
-DATA="$STATE/data"
+# The directory cs-npmrevs serves when given none, resolved as it resolves it.
+DATA="${CS_NPMREVS_DATA:-${XDG_DATA_HOME:-$HOME/.local/share}/cs-npmrevs/data}"
+IMAGES="${CS_NPMREVS_IMAGES:-ghcr.io}"
+SCOPE="${CS_NPMREVS_SCOPE:-@codesweep-ai}"
 NPMRC="$STATE/npmrc"
 PIDFILE="$STATE/cs-npmrevs.pid"
 # The command that runs cs-npmrevs: the version go.mod pins, unless told otherwise.
@@ -37,7 +47,7 @@ ours() {
   local status
   status="$(curl -fsS "$URL/-/npmrevs" 2>/dev/null | tr -d '\n ')" || return 0
   case "$status" in
-  *"\"data\":[\"$(printf '%s' "$PWD/$DATA" | tr -d ' ')\"]"*)
+  *"\"data\":[\"$(printf '%s' "$DATA" | tr -d ' ')\"]"*)
     printf '%s' "$status" | sed -n 's/.*"pid":\([0-9]*\).*/\1/p'
     ;;
   esac
@@ -76,7 +86,7 @@ if [ "${1:-}" = "stop" ]; then
   exit 0
 fi
 
-mkdir -p "$DATA"
+mkdir -p "$STATE" "$DATA"
 
 echo "==> building every platform"
 goreleaser build --snapshot --clean --skip=before > "$STATE/build.log" 2>&1 ||
@@ -96,17 +106,23 @@ for pkg in npm/dist/*/; do
   npm pack "$pkg" --pack-destination "$DATA" --silent >/dev/null
 done
 
+if [ "${1:-}" = "pack" ]; then
+  echo "A build installing through cs-npmrevs on port $PORT now finds $wrapper@$version."
+  exit 0
+fi
+
 # The server this script started last is replaced, so the build of cs-npmrevs doing
 # the serving is the current one. Anything else on the port is left alone.
 stop >/dev/null
 if answering; then
   echo "port $PORT is taken by a program this script did not start." >&2
-  echo "Stop it, or set CS_LINT_REGISTRY_PORT to a free port." >&2
+  echo "Stop it, or set CS_NPMREVS_PORT to a free port." >&2
   exit 1
 fi
 echo "==> starting the registry on port $PORT"
 # shellcheck disable=SC2086 # NPMREVS may be a command with arguments
-$NPMREVS serve --data "$DATA" --listen "127.0.0.1:$PORT" > "$STATE/cs-npmrevs.log" 2>&1 &
+$NPMREVS serve --data "$DATA" --images "$IMAGES" --images-scope "$SCOPE" \
+  --listen "127.0.0.1:$PORT" > "$STATE/cs-npmrevs.log" 2>&1 &
 echo $! > "$PIDFILE"
 for _ in $(seq 1 50); do
   answering && break

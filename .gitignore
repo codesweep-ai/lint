@@ -6,8 +6,8 @@
 /bin/
 /dist/
 
-# What `make npm-local` keeps between runs: the tarballs it serves, the build
-# log, the server's pid and log, and the npmrc it writes.
+# What `make npm-local` keeps between runs: the build log, the server's pid and
+# log, and the npmrc it writes. The tarballs go to cs-npmrevs's data directory.
 /npm/.local-registry/
 
 # The npm packages, which are generated from /dist/ at release time. The five

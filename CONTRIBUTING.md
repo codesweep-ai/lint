@@ -51,7 +51,8 @@ unrelated pull request.
 
 `goreleaser` is the one program still expected on the PATH. `make ci`
 validates the release manifest with it, and `make build` falls back to
-`go build` where it is absent.
+`go build` where it is absent. `make install` also packs the npm packages with it,
+node and npm, and skips that step where any of them is absent.
 
 This repository keeps a **ledger** of open issues in `ledger/`. Read
 [`ledger/AGENTS.md`](ledger/AGENTS.md) before you start work, and follow it as
@@ -174,7 +175,8 @@ generated from goreleaser's output, and nothing under `npm/dist/` is committed.
 ```bash
 make npm-snapshot   # build every target, package it, and show what would publish
 make npm-build      # package whatever dist/ already holds
-make npm-local      # serve a dev build from this machine, and print how to install it
+make npm-pack       # package a dev build into cs-npmrevs's data directory
+make npm-local      # the same, then serve it, and print how to install it
 make npm-publish    # platform packages first, then the wrapper
 ```
 
@@ -186,13 +188,15 @@ Running `npm/publish.sh` again is safe. It skips each package the registry
 already has from this commit, and stops on one it has from another commit.
 
 `make npm-local` is how to try a package before publishing it. It packs the five
-packages into `npm/.local-registry/data/` and serves them with
+packages into cs-npmrevs's default data directory and serves them with
 [cs-npmrevs](https://github.com/codesweep-ai/npmrevs), which makes every
 revision of an npm package installable without publishing it. It runs the
 cs-npmrevs that `go.mod` pins, and takes every other package from npmjs.com. It
 prints the install command, with the exact version it built. Run it after every
 change: a rebuild of the same commit replaces the last run's tarballs.
-`npm/local-registry.sh stop` stops the server.
+`npm/local-registry.sh stop` stops the server. Every project's build shares
+that directory, so `make npm-pack` alone leaves a build for a later one to
+install through cs-npmrevs on port 4875. `make install` runs it too.
 
 These variables belong to the packaging rather than to the tool, which is why
 [`MANUAL.md`](MANUAL.md) does not carry them:
@@ -202,7 +206,9 @@ These variables belong to the packaging rather than to the tool, which is why
 | `CS_LINT_BINARY` | The binary the npm wrapper runs, so the packaging can be tried against a local build. |
 | `CS_LINT_NPM_VERSION` | The version the generated packages carry. A tagged release supplies its own. |
 | `CS_LINT_NPM_TAG` | The channel a prerelease is published to, `next` unless it says otherwise. |
-| `CS_LINT_REGISTRY_PORT` | The port `make npm-local` serves on, 4873 unless it says otherwise. |
+| `CS_NPMREVS_PORT` | The port `make npm-local` serves on, 4875 unless it says otherwise. |
+| `CS_NPMREVS_IMAGES`, `CS_NPMREVS_SCOPE` | The images registry and the scope `make npm-local` serves beside the data directory, `ghcr.io` and `@codesweep-ai` unless they say otherwise. |
+| `CS_NPMREVS_DATA` | The data directory `make npm-pack` and `make npm-local` pack into, cs-npmrevs's own default unless it says otherwise. |
 | `NPMREVS` | The command `npm/local-registry.sh` and `npm/publish-images.sh` run as cs-npmrevs. `npm/local-registry.sh`, `make images-snapshot` and the workflow use the pinned one, and `npm/publish-images.sh` run by hand uses `cs-npmrevs` from the PATH. |
 | `REGISTRY` | The registry `npm/publish-images.sh` publishes to, `ghcr.io` unless it says otherwise. |
 

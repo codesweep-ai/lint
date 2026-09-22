@@ -61,7 +61,7 @@ COVER_MIN  ?= 70
 
 .PHONY: help tidy-check embed-check build build-go install uninstall test test-race coverage coverage-check ci \
         vet fmt fmt-check check lint deadcode actionlint prose refs oss surface self ledger \
-        snapshot release release-check clean npm-build npm-snapshot npm-local npm-publish images-snapshot
+        snapshot release release-check clean npm-build npm-snapshot npm-pack npm-local npm-publish images-snapshot
 
 .DEFAULT_GOAL := help
 
@@ -145,8 +145,8 @@ repin:
 	@GOWORK=off go mod tidy
 	@$(MAKE) versions
 
-## install: build and copy the binary into $(PREFIX)/bin
-install: build
+## install: build and copy the binary into $(PREFIX)/bin, and pack its npm packages for later builds
+install: build npm-pack
 	@mkdir -p $(PREFIX)/bin
 	install -m 0755 $(BIN) $(PREFIX)/bin/cs-lint
 	@echo "installed $(PREFIX)/bin/cs-lint"
@@ -356,6 +356,18 @@ npm-snapshot:
 	$(GORELEASER) build --snapshot --clean --skip=before
 	@CS_LINT_NPM_VERSION='$(NPM_SNAPSHOT_VERSION)' node npm/build.mjs
 	@./npm/publish.sh --dry-run
+
+## npm-pack: package a dev build into cs-npmrevs's data directory, for a later build to install
+##
+## `make install` runs it too, so every install leaves its packages where a
+## later build installing through cs-npmrevs finds them. A machine without
+## goreleaser, node or npm skips it, and installs the binary all the same.
+npm-pack: build
+	@if command -v $(GORELEASER) >/dev/null 2>&1 && command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then \
+		./npm/local-registry.sh pack; \
+	else \
+		echo "npm-pack: SKIP (needs goreleaser, node and npm)"; \
+	fi
 
 ## npm-local: serve a dev build from this machine, and print how to install it
 npm-local:
