@@ -3,17 +3,19 @@
   "title": "No rule reports a merge commit, so a history meant to stay linear gains them unnoticed",
   "type": "improvement",
   "severity": "med",
-  "status": "in-progress",
+  "status": "closed",
   "foundBy": "user report (host): \"Merge commits (errors on new commits, warnings on older that are already pushed)\"",
   "opened": "2026-09-22",
-  "resolved": null,
+  "resolved": "2026-09-22",
   "stint": "commit-history-rules",
   "evidence": {
-    "commits": [],
+    "commits": [
+      "0e71b10"
+    ],
     "integrated": [],
-    "verified": null
+    "verified": "`go test ./internal/oss/ -run 'Merge|Linear' -count=1` passes 3 tests. An unpushed merge in a history of five commits is one error reading `1 of 5 commits are merges`. After a push it is one warning, and in a clone that never fetched it is one warning. A linear history reports nothing. Against the code at 538d036, all three tests fail with `no rule OSS-712`. With the pushed half raised to an error, two of them fail. The binary built at 6b49610 reports 2 of 157 commits as merges in tracer, 3 of 287 in campaign and 1 of 310 in ui, each as a warning. It reports no merge in the other six projects. `make ci` passed at 6b49610."
   },
-  "resolution": null,
+  "resolution": "OSS-712 reports every merge commit in the history. A merge no remote carries fails the run, because a rebase replays the same work without it. One a remote carries prints as a warning and passes, and so does one in a clone that cannot say what is pushed. A project that merges by design waives the rule with the reason.",
   "details": "The sibling projects keep a linear history. Each change lands as its own commits on `main`, and a branch that fell behind is rebased rather than merged. Nothing checks it. At the time of filing, `git rev-list --merges HEAD` counts 2 merge commits in tracer, 3 in campaign and 1 in ui. Four bring a remote `main` into local work, and two join a finished side branch.\n\nA merge commit is cheap to avoid before it is pushed, because `git rebase` replays the same work without one. Once a remote carries it, removing it rewrites every clone somebody else made. So a merge no remote carries should fail the run. One a remote already carries should be a warning, which is the split the other history rules already make.",
   "notes": [],
   "links": []
