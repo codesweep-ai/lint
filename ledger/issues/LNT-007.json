@@ -1,0 +1,20 @@
+{
+  "id": "LNT-007",
+  "title": "OSS-704 reads only commit messages, so it never sees the author and committer addresses",
+  "type": "defect",
+  "severity": "med",
+  "status": "in-progress",
+  "foundBy": "deps-maintenance pilot1 campaign, finding F11.7 in its orchestrator's findings-log.md, from the backend seat reading internal/oss/history.go; carried as item 8 of the pilot2 findings",
+  "opened": "2026-09-22",
+  "resolved": null,
+  "stint": "pilot2-tier3",
+  "evidence": {
+    "commits": [],
+    "integrated": [],
+    "verified": null
+  },
+  "resolution": null,
+  "details": "OSS-704 is titled \"Every address the history publishes is meant to be public\", but it runs `git log --format=%B`, which reads commit messages alone. Every commit also carries the email of its author and of its committer. A person's address usually lands in those two fields.\n\nThe pilot1 campaign read 20 commits. The messages held no address outside the allow-list. The author and committer fields held one such address on 9 commits. `cs-lint oss` passed on every run, and the warning named only addresses from the messages.\n\nThe same gap shows in this family's own repositories. Each warning the gates print names one address, found once in a message. The author and committer fields of those histories carry two people's addresses on hundreds of commits, and the rule reports neither.\n\nTo reproduce, make a commit in a scratch repository under a person's own address, with a message that names none, and run `cs-lint oss`. OSS-704 stays quiet.",
+  "notes": [],
+  "links": []
+}
