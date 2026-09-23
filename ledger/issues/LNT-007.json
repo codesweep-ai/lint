@@ -3,17 +3,19 @@
   "title": "OSS-704 reads only commit messages, so it never sees the author and committer addresses",
   "type": "defect",
   "severity": "med",
-  "status": "in-progress",
+  "status": "closed",
   "foundBy": "deps-maintenance pilot1 campaign, finding F11.7 in its orchestrator's findings-log.md, from the backend seat reading internal/oss/history.go; carried as item 8 of the pilot2 findings",
   "opened": "2026-09-22",
-  "resolved": null,
+  "resolved": "2026-09-22",
   "stint": "pilot2-tier3",
   "evidence": {
-    "commits": [],
+    "commits": [
+      "05f2c2a"
+    ],
     "integrated": [],
-    "verified": null
+    "verified": "At 05f2c2a, `go test ./internal/oss/ -run 'TestAnAddressIs|TestAMachineIdentity' -count=1` passes 3 tests and their 4 subtests. Against the rule at 635b585, all 3 fail: an address as the author or as the committer gives no finding, and one in a message is named without its field. With the privacy-address check switched off, `TestAMachineIdentityIsNotReported` fails on the forge's privacy address it commits under. Run from 05f2c2a over this family's repositories, OSS-704 names two people's addresses as author and committer. In ui one of them reads `message 1, author 273, committer 273`. In npmrevs the other reads `author 11, committer 11`, where the rule its pinned build carries reports nothing. `make ci` passed at 05f2c2a, and its own `oss` run gave that warning for this repository, with the gate still green."
   },
-  "resolution": null,
+  "resolution": "OSS-704 reads each commit's author and committer as well as its message, and names the field and the number of commits for each address. It stays a warning. An error would turn every repository red over its own contributors' addresses, and `emailAllow` exists for machine domains rather than for people. A no-reply sender, a forge's privacy address and a declared domain stay quiet.",
   "details": "OSS-704 is titled \"Every address the history publishes is meant to be public\", but it runs `git log --format=%B`, which reads commit messages alone. Every commit also carries the email of its author and of its committer. A person's address usually lands in those two fields.\n\nThe pilot1 campaign read 20 commits. The messages held no address outside the allow-list. The author and committer fields held one such address on 9 commits. `cs-lint oss` passed on every run, and the warning named only addresses from the messages.\n\nThe same gap shows in this family's own repositories. Each warning the gates print names one address, found once in a message. The author and committer fields of those histories carry two people's addresses on hundreds of commits, and the rule reports neither.\n\nTo reproduce, make a commit in a scratch repository under a person's own address, with a message that names none, and run `cs-lint oss`. OSS-704 stays quiet.",
   "notes": [],
   "links": []
