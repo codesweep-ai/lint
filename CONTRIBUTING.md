@@ -43,7 +43,8 @@ one that has to pass.
 No linter needs installing. The ones it shells out to are pinned Go tools,
 built from the module cache the first time you run them: `golangci-lint`,
 `deadcode`, `actionlint` and `cs-ledger`. `make repin` moves the `cs-` pins to
-the branch tip, and `make versions` prints the version of each.
+the last commit each one's CI passed, and `make versions` prints the version of
+each.
 
 Moving a pin is an edit to `go.mod`, or to `go.golangci.mod` for
 `golangci-lint`. A linter release reaches you when you ask for it, not on an
