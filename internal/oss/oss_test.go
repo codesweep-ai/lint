@@ -1142,6 +1142,69 @@ func TestALongCommitBodyIsReported(t *testing.T) {
 	}
 }
 
+// gitIn runs one git command in the repository, failing the test if it fails.
+func gitIn(t *testing.T, repo *lint.Repo, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = repo.Root
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
+// merged builds a history whose last commit joins a side branch back in, the
+// shape a pull of a remote main into local work leaves behind.
+func merged(t *testing.T) *lint.Repo {
+	t.Helper()
+	repo := history(t, "Add the parser")
+	gitIn(t, repo, "checkout", "-q", "-b", "side")
+	gitIn(t, repo, "commit", "--allow-empty", "-q", "-m", "Add the lexer")
+	gitIn(t, repo, "checkout", "-q", "-")
+	gitIn(t, repo, "commit", "--allow-empty", "-q", "-m", "Add the printer")
+	gitIn(t, repo, "merge", "-q", "--no-ff", "-m", "Merge the lexer", "side")
+	return repo
+}
+
+// A merge no remote carries is replayed by a rebase in a second, so it fails
+// the run. Once a remote carries it, removing it rewrites other people's
+// clones, so it is reported and passes.
+func TestAMergeCommitFailsTheRunUntilItIsPushed(t *testing.T) {
+	repo := merged(t)
+	got := runHistory(t, "OSS-712", repo)
+	if len(got) != 1 || got[0].Severity != lint.Error {
+		t.Fatalf("an unpushed merge gave %v, want one error", got)
+	}
+	if !strings.Contains(got[0].Message, "1 of 5 commits are merges") ||
+		!strings.Contains(got[0].Message, "no remote carries them") {
+		t.Errorf("the finding does not count the merge or say it can be fixed: %q", got[0].Message)
+	}
+	publish(t, repo)
+	got = runHistory(t, "OSS-712", repo)
+	if len(got) != 1 || got[0].Severity != lint.Warn {
+		t.Fatalf("a pushed merge gave %v, want one warning", got)
+	}
+	if !strings.Contains(got[0].Message, "a remote already carries them") {
+		t.Errorf("the finding does not say a remote has it: %q", got[0].Message)
+	}
+}
+
+// A clone that has never fetched cannot say what is pushed, and a guess there
+// would fail a clone for the state of somebody else's fetch.
+func TestAMergeIsAWarningWhereTheCloneCannotTell(t *testing.T) {
+	repo := merged(t)
+	addBareRemote(t, repo)
+	got := runHistory(t, "OSS-712", repo)
+	if len(got) != 1 || got[0].Severity != lint.Warn {
+		t.Errorf("a merge in a clone that cannot tell gave %v, want one warning", got)
+	}
+}
+
+func TestALinearHistoryHasNoMerge(t *testing.T) {
+	if got := runHistory(t, "OSS-712", history(t, "Add the parser", "Add the lexer")); len(got) != 0 {
+		t.Errorf("a linear history was reported: %v", got)
+	}
+}
+
 // labelled finds the category-label finding, which is the one of OSS-702's
 // four that fails the run.
 func labelled(problems []lint.Problem) *lint.Problem {

@@ -336,6 +336,12 @@ the committer. A rule that read messages alone passed a history whose every
 commit carried one. The finding stays a warning, because only that person can
 say whether their address was meant to be public.*
 
+**R48b.** A merge commit **MUST** be reported: as an error while no remote
+carries it, and as a warning once one does. *A rebase replays the same work
+without a merge, and costs nothing before the push. After it, removing the
+merge rewrites every clone somebody else made. A project that merges by design
+waives the rule with the reason.*
+
 **R49.** The licence **MUST** be the canonical text of the licence it claims
 to be, byte for byte, and a finding **MUST** name the line that first differs.
 *An edited licence is one nobody has reviewed, and a forge names a licence by

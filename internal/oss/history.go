@@ -663,6 +663,37 @@ var historyRules = []rule{{
 				n, total, maxBodyParagraphs, reach)
 		})...)
 	},
+}, {
+	id: "OSS-712", severity: lint.Error,
+	title: "The history is a line, with no merge commit in it",
+	why: "A merge commit records how two branches were joined rather than what changed, and " +
+		"it turns the history into a graph a reader has to untangle. Before it is pushed, " +
+		"`git rebase` replays the same work without one, so a merge no remote carries fails " +
+		"the run. After, removing it rewrites every clone somebody else made, so one a remote " +
+		"already carries prints and passes. A project that merges by design waives the rule " +
+		"with the reason.",
+	check: func(l *Linter) []lint.Problem {
+		log, err := l.repo.Git("log", "--format=%H %P")
+		if err != nil {
+			return []lint.Problem{lint.Skipf("OSS-712", "no git history")}
+		}
+		var merges []string
+		var total int
+		for line := range strings.SplitSeq(log, "\n") {
+			fields := strings.Fields(line)
+			if len(fields) == 0 {
+				continue
+			}
+			total++
+			if len(fields) > 2 {
+				merges = append(merges, shortSHA(fields[0]))
+			}
+		}
+		return l.pastFindings("OSS-712", lint.Warn, merges, func(n int, reach string) string {
+			return fmt.Sprintf("%d of %d commits are merges, and %s; rebase onto the branch "+
+				"instead of merging it", n, total, reach)
+		})
+	},
 }}
 
 // maxBodyWords and maxBodyParagraphs are where a body stops answering the
