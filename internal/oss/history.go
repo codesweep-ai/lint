@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/codesweep-ai/lint/internal/lint"
 )
@@ -40,6 +41,12 @@ var (
 	// A trailer: a key and a value on one line at the foot of a message.
 	// Metadata rather than prose, so the length rules do not count it.
 	trailerLine = regexp.MustCompile(`^[A-Za-z][A-Za-z-]*:\s`)
+
+	// A trailer as the wrap rule reads one: the key capitalised, as git and
+	// every forge write it. A wrapped prose line that happens to open with
+	// "context:" is prose, and an audit that took it for a trailer reported
+	// two false positives.
+	wrapTrailer = regexp.MustCompile(`^[A-Z][A-Za-z-]*:\s`)
 
 	// A body line that narrates the work rather than describing the change.
 	narratesProcess = regexp.MustCompile(`(?i)^\s*(?:[-*]\s*)?(?:as (?:requested|discussed|agreed)|` +
@@ -85,6 +92,31 @@ func bodyProse(body string) (words, paragraphs int) {
 		words += len(strings.Fields(t))
 	}
 	return words, paragraphs
+}
+
+// widestBodyLine returns the width in characters of a commit body's widest
+// line, with the trailer block left out: the last run of lines that are each
+// a trailer or blank. It returns 0 for a body that is only trailers, or none.
+//
+// Trailers are exempt because an address is as long as it is: a
+// Co-Authored-By line cannot be wrapped and is not prose. A line shaped like
+// a trailer with prose after it is prose, and is measured.
+func widestBodyLine(body string) int {
+	lines := strings.Split(body, "\n")
+	end := len(lines)
+	for i, line := range slices.Backward(lines) {
+		if strings.TrimSpace(line) != "" && !wrapTrailer.MatchString(line) {
+			break
+		}
+		if wrapTrailer.MatchString(line) {
+			end = i
+		}
+	}
+	widest := 0
+	for _, line := range lines[:end] {
+		widest = max(widest, utf8.RuneCountInString(line))
+	}
+	return widest
 }
 
 // historySeverity is Error until the repository is public. Published history
@@ -694,7 +726,49 @@ var historyRules = []rule{{
 				"instead of merging it", n, total, reach)
 		})
 	},
+}, {
+	id: "OSS-713", severity: lint.Error,
+	title: "Every commit body is wrapped at the width CONTRIBUTING states",
+	why: "Git shows a body as it was typed, so a paragraph on one line runs off a terminal " +
+		"and a line a column or two over wraps untidily in every log. It checks the number " +
+		"CONTRIBUTING states, because here the number is the convention itself rather than " +
+		"a stand-in for quality that would become a target. Only the trailer block at the foot of the " +
+		"message is exempt, because an address cannot be wrapped. Width is counted in " +
+		"characters, so a body wrapped by eye passes whatever its bytes. A body is rewrapped " +
+		"in a second before it is pushed, so an unwrapped one no remote carries fails the " +
+		"run, and one a remote already carries prints and passes.",
+	check: func(l *Linter) []lint.Problem {
+		log, err := l.repo.Git("log", "--format=%H%x00%b%x1e")
+		if err != nil {
+			return []lint.Problem{lint.Skipf("OSS-713", "no git history")}
+		}
+		var over []string
+		var total, worst int
+		for rec := range strings.SplitSeq(log, "\x1e") {
+			sha, body, found := strings.Cut(strings.TrimLeft(rec, "\n"), "\x00")
+			w := widestBodyLine(body)
+			if !found || w == 0 {
+				continue
+			}
+			total++
+			if w > bodyColumns {
+				over = append(over, shortSHA(sha))
+				worst = max(worst, w)
+			}
+		}
+		if total == 0 {
+			return []lint.Problem{lint.Skipf("OSS-713", "no commit carries a body")}
+		}
+		return l.pastFindings("OSS-713", lint.Warn, over, func(n int, reach string) string {
+			return fmt.Sprintf("%d of %d bodies run past %d columns, and %s; the widest line "+
+				"in the history runs to %d", n, total, bodyColumns, reach, worst)
+		})
+	},
 }}
+
+// bodyColumns is the width a commit body is wrapped at, the number every
+// CONTRIBUTING in the family states.
+const bodyColumns = 72
 
 // maxBodyWords and maxBodyParagraphs are where a body stops answering the
 // question the subject left and starts reporting the session. Set well past

@@ -1205,6 +1205,68 @@ func TestALinearHistoryHasNoMerge(t *testing.T) {
 	}
 }
 
+// wide is a body line of exactly n columns.
+func wide(n int) string {
+	return strings.Repeat("x", n)
+}
+
+// A body is rewrapped in a second before it is pushed, so an unwrapped one
+// fails the run. After, rewrapping it rewrites other people's clones.
+func TestABodyPastTheWrapFailsTheRunUntilItIsPushed(t *testing.T) {
+	repo := history(t, "Move the retry budget onto the client\n\n"+wide(73)+"\n")
+	got := runHistory(t, "OSS-713", repo)
+	if len(got) != 1 || got[0].Severity != lint.Error {
+		t.Fatalf("an unpushed body 73 columns wide gave %v, want one error", got)
+	}
+	if !strings.Contains(got[0].Message, "1 of 1 bodies run past 72 columns") ||
+		!strings.Contains(got[0].Message, "the widest line in the history runs to 73") {
+		t.Errorf("the finding does not count the body or name the width: %q", got[0].Message)
+	}
+	publish(t, repo)
+	got = runHistory(t, "OSS-713", repo)
+	if len(got) != 1 || got[0].Severity != lint.Warn {
+		t.Fatalf("a pushed body 73 columns wide gave %v, want one warning", got)
+	}
+}
+
+// The width is counted in characters, not bytes: an em dash is one column on
+// screen and three bytes on disk, and a body wrapped by eye must pass.
+func TestABodyWrappedAtTheLimitPasses(t *testing.T) {
+	line := strings.Repeat("—", 12) + wide(60)
+	repo := history(t, "Move the retry budget onto the client\n\n"+wide(72)+"\n"+line+"\n")
+	if got := runHistory(t, "OSS-713", repo); len(got) != 0 {
+		t.Errorf("a body wrapped at 72 columns was reported: %v", got)
+	}
+}
+
+// An address is as long as it is, so the trailer block at the foot of the
+// message is exempt. A line shaped like a trailer in the middle of the prose
+// is prose, and a lower-case key is prose wherever it sits.
+func TestOnlyTheTrailerBlockIsExemptFromTheWrap(t *testing.T) {
+	address := "Co-Authored-By: Someone With A Long Name <someone.with.a.long.address@example.com>"
+	trailed := history(t, "Move the retry budget onto the client\n\n"+
+		"Two clients sharing one transport shared a budget.\n\n"+address+"\n")
+	if got := runHistory(t, "OSS-713", trailed); len(got) != 0 {
+		t.Errorf("a trailer past 72 columns was reported: %v", got)
+	}
+	for name, body := range map[string]string{
+		"a trailer-shaped line before more prose": "Note: " + wide(70) + "\n\nMore prose follows it.\n",
+		"a lower-case key in the last block":      "context: " + wide(70) + "\n",
+	} {
+		repo := history(t, "Move the retry budget onto the client\n\n"+body)
+		if got := runHistory(t, "OSS-713", repo); len(got) != 1 || got[0].Severity != lint.Error {
+			t.Errorf("%s gave %v, want one error", name, got)
+		}
+	}
+}
+
+func TestAHistoryWithNoBodySkipsTheWrap(t *testing.T) {
+	got := runHistory(t, "OSS-713", history(t, "Move the retry budget onto the client"))
+	if len(got) != 1 || got[0].Severity != lint.Skip {
+		t.Errorf("a history with no body gave %v, want a skip", got)
+	}
+}
+
 // labelled finds the category-label finding, which is the one of OSS-702's
 // four that fails the run.
 func labelled(problems []lint.Problem) *lint.Problem {

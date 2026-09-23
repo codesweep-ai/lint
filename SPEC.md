@@ -342,6 +342,15 @@ without a merge, and costs nothing before the push. After it, removing the
 merge rewrites every clone somebody else made. A project that merges by design
 waives the rule with the reason.*
 
+**R48c.** A commit body line wider than 72 characters **MUST** be reported: as
+an error while no remote carries the commit, and as a warning once one does.
+The trailer block at the foot of the message **MUST NOT** be measured, and a
+trailer-shaped line with prose after it **MUST** be. Width **MUST** be counted
+in characters rather than bytes. *R46 does not apply: here the published number
+is the convention itself, not a stand-in for quality that would become a
+target. An address cannot be wrapped, and a body wrapped by eye must pass
+whatever its encoding.*
+
 **R49.** The licence **MUST** be the canonical text of the licence it claims
 to be, byte for byte, and a finding **MUST** name the line that first differs.
 *An edited licence is one nobody has reviewed, and a forge names a licence by
