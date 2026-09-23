@@ -1,0 +1,20 @@
+{
+  "id": "LNT-008",
+  "title": "No rule reports a merge commit, so a history meant to stay linear gains them unnoticed",
+  "type": "improvement",
+  "severity": "med",
+  "status": "in-progress",
+  "foundBy": "user report (host): \"Merge commits (errors on new commits, warnings on older that are already pushed)\"",
+  "opened": "2026-09-22",
+  "resolved": null,
+  "stint": "commit-history-rules",
+  "evidence": {
+    "commits": [],
+    "integrated": [],
+    "verified": null
+  },
+  "resolution": null,
+  "details": "The sibling projects keep a linear history. Each change lands as its own commits on `main`, and a branch that fell behind is rebased rather than merged. Nothing checks it. At the time of filing, `git rev-list --merges HEAD` counts 2 merge commits in tracer, 3 in campaign and 1 in ui. Four bring a remote `main` into local work, and two join a finished side branch.\n\nA merge commit is cheap to avoid before it is pushed, because `git rebase` replays the same work without one. Once a remote carries it, removing it rewrites every clone somebody else made. So a merge no remote carries should fail the run. One a remote already carries should be a warning, which is the split the other history rules already make.",
+  "notes": [],
+  "links": []
+}

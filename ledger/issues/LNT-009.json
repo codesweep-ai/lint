@@ -1,0 +1,20 @@
+{
+  "id": "LNT-009",
+  "title": "No rule holds a commit body to the 72-column wrap that every CONTRIBUTING.md states",
+  "type": "improvement",
+  "severity": "med",
+  "status": "in-progress",
+  "foundBy": "user report (host): \"Commit bodies with longer lines than what's recommended in our various contributing.md ... this as well should be a warning if it's already pushed and an error on new commits\"",
+  "opened": "2026-09-22",
+  "resolved": null,
+  "stint": "commit-history-rules",
+  "evidence": {
+    "commits": [],
+    "integrated": [],
+    "verified": null
+  },
+  "resolution": null,
+  "details": "Every sibling project's `CONTRIBUTING.md` says to wrap a commit body at 72 columns, and `cs-lint oss` checks every other part of that section. The wrap is the gap. ui fills it with a script of its own, `scripts/check-commits.mjs`, whose header names an OSS rule in cs-lint as its durable home. The other projects have nothing.\n\nBodies with a line past 72 columns are common. At the time of filing there are 4 in lint, 1 in ledger, 23 in tracer and 6 in vcr. There are 19 in sandbox, 31 in campaign and 29 in ui. The widest runs to 314 columns, a whole paragraph on one line. A body is free to rewrap before it is pushed and costs a rewrite after. So the finding should be an error on a new commit and a warning on one a remote already carries.",
+  "notes": [],
+  "links": []
+}
