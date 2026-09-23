@@ -3,6 +3,7 @@ package oss
 import (
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/codesweep-ai/lint/internal/lint"
@@ -43,6 +44,15 @@ func allowed(captured string, names []string) bool {
 		}
 	}
 	return false
+}
+
+// machineAddress reports whether a matched address belongs to no person: a
+// no-reply sender, a forge's privacy address such as
+// 12345+ada@users.noreply.github.com, a reserved documentation domain, or a
+// domain the repository declares in emailAllow.
+func machineAddress(m []string, mailAllow []string) bool {
+	return allowed(m[1], mailAllow) || allowed(m[1], []string{"noreply"}) ||
+		strings.HasPrefix(m[0], "noreply@") || slices.Contains(strings.Split(m[1], "."), "noreply")
 }
 
 type leakPattern struct {

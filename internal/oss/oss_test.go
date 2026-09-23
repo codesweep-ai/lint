@@ -1,6 +1,7 @@
 package oss
 
 import (
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -1002,6 +1003,86 @@ func runHistoryAs(t *testing.T, id string, repo *lint.Repo, cfg config.OSS) []li
 	}
 	t.Fatalf("no rule %s", id)
 	return nil
+}
+
+// commitAs adds an empty commit under the author and committer addresses
+// given, whatever identity the repository is configured with.
+func commitAs(t *testing.T, repo *lint.Repo, author, committer, msg string) {
+	t.Helper()
+	cmd := exec.Command("git", "commit", "--allow-empty", "-q", "-m", msg)
+	cmd.Dir = repo.Root
+	cmd.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME=Ada", "GIT_AUTHOR_EMAIL="+author,
+		"GIT_COMMITTER_NAME=Ada", "GIT_COMMITTER_EMAIL="+committer)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("commit: %v\n%s", err, out)
+	}
+}
+
+// A commit publishes an address in three places, and the finding names the
+// one that carried it: a message is reworded, while an author or a committer
+// is rewritten, so the fix differs.
+func TestAnAddressIsReportedWithTheFieldThatCarriedIt(t *testing.T) {
+	const person, machine = "ada@realcompany.co.uk", "ada@example.com"
+	trailer := "Add the tree\n\nCo-Authored-By: Ada <" + person + ">\n"
+	cases := []struct {
+		name, author, committer, msg, want string
+	}{
+		{"in the message", machine, machine, trailer, person + " (message 1)"},
+		{"as the author", person, machine, "Add the tree\n", person + " (author 1)"},
+		{"as the committer", machine, person, "Add the tree\n", person + " (committer 1)"},
+		{"in all three", person, person, trailer, person + " (message 1, author 1, committer 1)"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := history(t)
+			commitAs(t, repo, tc.author, tc.committer, tc.msg)
+			got := runHistory(t, "OSS-704", repo)
+			if len(got) != 1 {
+				t.Fatalf("got %d findings, want 1: %+v", len(got), got)
+			}
+			if got[0].Severity != lint.Warn {
+				t.Errorf("an address was reported as %v, want a warning", got[0].Severity)
+			}
+			if !strings.HasSuffix(got[0].Message, ": "+tc.want) {
+				t.Errorf("got %q, want it to end %q", got[0].Message, tc.want)
+			}
+		})
+	}
+}
+
+// The counts are commits, so a stray trailer reads differently from an
+// identity that signs the whole history.
+func TestAnAddressIsCountedByCommit(t *testing.T) {
+	const person = "ada@realcompany.co.uk"
+	repo := history(t)
+	for range 3 {
+		commitAs(t, repo, person, "ada@example.com", "Add the tree\n")
+	}
+	got := runHistory(t, "OSS-704", repo)
+	if len(got) != 1 || !strings.HasSuffix(got[0].Message, ": "+person+" (author 3)") {
+		t.Errorf("got %+v, want one finding ending %q", got, person+" (author 3)")
+	}
+}
+
+// A machine identity publishes nobody's address: a no-reply sender, the
+// forge's privacy address, a reserved documentation domain, and a domain the
+// repository declares in emailAllow.
+func TestAMachineIdentityIsNotReported(t *testing.T) {
+	repo := history(t)
+	for _, addr := range []string{
+		"noreply@github.com",
+		"12345+ada@users.noreply.github.com",
+		"ada@example.org",
+		"build@ci.realcompany.co.uk",
+	} {
+		commitAs(t, repo, addr, addr, "Add the tree\n\nCo-Authored-By: Build <"+addr+">\n")
+	}
+	cfg := config.Default().OSS
+	cfg.EmailAllow = []string{"ci.realcompany.co.uk"}
+	if got := runHistoryAs(t, "OSS-704", repo, cfg); len(got) != 0 {
+		t.Errorf("a machine identity was reported: %+v", got)
+	}
 }
 
 func TestBulletPaddingIsReported(t *testing.T) {

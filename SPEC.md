@@ -327,6 +327,15 @@ error does not soften into advice at the moment the convention starts mattering
 to strangers. A history that already carries labels waives the rule with the
 reason, which is a decision somebody can read.*
 
+**R48a.** A mail address the history publishes **MUST** be looked for in each
+commit's author and committer as well as in its message. The finding **MUST**
+name which of the three carried each address, and in how many commits. A
+no-reply sender, a forge's privacy address and a domain in `emailAllow`
+**MUST NOT** be reported. *A person's address usually lands as the author or
+the committer. A rule that read messages alone passed a history whose every
+commit carried one. The finding stays a warning, because only that person can
+say whether their address was meant to be public.*
+
 **R49.** The licence **MUST** be the canonical text of the licence it claims
 to be, byte for byte, and a finding **MUST** name the line that first differs.
 *An edited licence is one nobody has reviewed, and a forge names a licence by

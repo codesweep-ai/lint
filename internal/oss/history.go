@@ -374,28 +374,56 @@ var historyRules = []rule{{
 }, {
 	id: "OSS-704", severity: lint.Warn,
 	title: "Every address the history publishes is meant to be public",
-	why: "A Co-Authored-By trailer publishes an address. A machine identity is fine; a " +
-		"person's is theirs to publish, not yours.",
+	why: "Every commit publishes its author's address and its committer's, and a " +
+		"Co-Authored-By trailer in its message publishes another. A machine identity is " +
+		"fine; a person's is theirs to publish, not yours. Only that person can say which " +
+		"theirs is, so the rule warns rather than fails.",
 	check: func(l *Linter) []lint.Problem {
-		log, err := l.repo.Git("log", "--format=%B")
+		// One record per commit, holding the message, the author's address and
+		// the committer's, in the order fields names them.
+		log, err := l.repo.Git("log", "--format=%B%x00%ae%x00%ce%x1e")
 		if err != nil {
 			return []lint.Problem{lint.Skipf("OSS-704", "no git history")}
 		}
 		mailAllow := append(append([]string(nil), reservedDomains...), l.cfg.EmailAllow...)
-		found := map[string]bool{}
-		for _, m := range mailAddr.FindAllStringSubmatch(log, -1) {
-			if allowed(m[1], mailAllow) || allowed(m[1], []string{"noreply"}) ||
-				strings.HasPrefix(m[0], "noreply@") {
-				continue
+		fields := []string{"message", "author", "committer"}
+		found := map[string][]int{} // address -> commits carrying it, per field
+		for record := range strings.SplitSeq(log, "\x1e") {
+			parts := strings.SplitN(strings.TrimLeft(record, "\n"), "\x00", len(fields))
+			for i, part := range parts {
+				seen := map[string]bool{}
+				for _, m := range mailAddr.FindAllStringSubmatch(part, -1) {
+					if seen[m[0]] || machineAddress(m, mailAllow) {
+						continue
+					}
+					seen[m[0]] = true
+					if found[m[0]] == nil {
+						found[m[0]] = make([]int, len(fields))
+					}
+					found[m[0]][i]++
+				}
 			}
-			found[m[0]] = true
 		}
-		if len(found) > 0 {
-			return []lint.Problem{lint.Warnf("OSS-704",
-				"the history publishes these addresses; confirm each is meant to be public: %s",
-				strings.Join(lint.First(lint.SortedKeys(found), 6), ", "))}
+		if len(found) == 0 {
+			return nil
 		}
-		return nil
+		addrs := lint.SortedKeys(found)
+		var named []string
+		for _, addr := range lint.First(addrs, 6) {
+			var where []string
+			for i, n := range found[addr] {
+				if n > 0 {
+					where = append(where, fmt.Sprintf("%s %d", fields[i], n))
+				}
+			}
+			named = append(named, addr+" ("+strings.Join(where, ", ")+")")
+		}
+		if len(addrs) > len(named) {
+			named = append(named, fmt.Sprintf("and %d more", len(addrs)-len(named)))
+		}
+		return []lint.Problem{lint.Warnf("OSS-704",
+			"the history publishes these addresses; confirm each is meant to be public: %s",
+			strings.Join(named, ", "))}
 	},
 }, {
 	id: "OSS-705", severity: lint.Warn,
