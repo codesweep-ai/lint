@@ -60,6 +60,12 @@ This repository keeps a **ledger** of open issues in `ledger/`. Read
 you go. A commit that touches `ledger/` needs `cs-ledger render && cs-ledger
 check` to pass first, and `make ledger` runs the check half.
 
+A push to main that changes only `ledger/` builds nothing and publishes nothing
+to npm or as images. `ci` does not run for it: the `ledger` workflow runs
+`make ledger`, `make prose`, `make refs` and `make oss` instead, and the site
+republishes the ledger's page when it finishes. Such a commit is never a build
+a sibling pins.
+
 ## Design rules
 
 Your change has to keep these. Each one names the test or the review that
@@ -221,7 +227,9 @@ skips a commit that is no longer main's head by then. It stores no credential:
 each package names the workflow as a trusted publisher. To publish one commit by
 hand, or to see what a publish would send without sending it, run it from the
 Actions tab or with `gh workflow run npm.yml`. A dispatched publish waits for
-`ci` to pass on that commit, and a dry run does not wait.
+`ci` to pass on that commit, and a dry run does not wait. After a push that
+changes only the ledger, the head has no `ci` run, so a dispatch there
+publishes nothing.
 
 Such a build takes its version from the binary, which is the commit's timestamp
 and its hash. A caret range never resolves to a prerelease, so one reaches
