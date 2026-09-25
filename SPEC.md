@@ -376,6 +376,12 @@ address, and its prose is not this project's to restyle. Without the exemption
 the rule set asks for the edit this requirement forbids, and no file satisfies
 both.*
 
+**R51a.** CI **MUST** run on every pull request and on demand. Every other
+workflow a push to a branch starts **MUST** run on demand as well, and one only a
+pushed tag starts **MUST NOT** be held to it. *A fork's pull request is every
+outside contribution. A workflow only a push starts cannot run on a branch
+before the merge, or on a commit whose push did not start it.*
+
 ### 4.6 The reference linter
 
 **R52.** The path check **MUST** read every tracked Markdown file, not only the

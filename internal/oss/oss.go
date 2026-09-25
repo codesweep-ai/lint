@@ -202,11 +202,16 @@ func (l *Linter) workflows() map[string]string {
 	return out
 }
 
+// ciPaths are where CI is read from, the first that exists winning.
+var ciPaths = []string{".github/workflows/ci.yml", ".github/workflows/ci.yaml"}
+
 func (l *Linter) ci() (string, bool) {
-	if b, ok := l.read(".github/workflows/ci.yml"); ok {
-		return b, true
+	for _, path := range ciPaths {
+		if b, ok := l.read(path); ok {
+			return b, true
+		}
 	}
-	return l.read(".github/workflows/ci.yaml")
+	return "", false
 }
 
 func (l *Linter) makefile() string {

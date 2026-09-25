@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/codesweep-ai/lint/internal/lint"
 )
 
@@ -137,19 +139,29 @@ var buildRules = []rule{{
 	},
 }, {
 	id: "OSS-402", severity: lint.Warn,
-	title: "CI runs on the default branch, on every pull request, and on demand",
+	title: "CI runs on pull requests, and what a push starts runs on demand",
 	why: "A workflow that only runs on push never sees a fork's pull request, which is " +
-		"every outside contribution.",
+		"every outside contribution. Nor can it run on a branch before the merge, or on " +
+		"a commit whose push did not start it.",
 	check: func(l *Linter) []lint.Problem {
-		body, ok := l.ci()
-		if !ok {
-			return []lint.Problem{lint.Skipf("OSS-402", "no ci.yml")}
-		}
 		var out []lint.Problem
-		for _, trigger := range []string{"pull_request", "workflow_dispatch"} {
-			if !ciTrigger[trigger].MatchString(body) {
-				out = append(out, lint.Warnf("OSS-402", "ci.yml has no %s trigger", trigger))
+		if body, ok := l.ci(); ok {
+			for _, trigger := range []string{"pull_request", "workflow_dispatch"} {
+				if !ciTrigger[trigger].MatchString(body) {
+					out = append(out, lint.Warnf("OSS-402", "ci.yml has no %s trigger", trigger))
+				}
 			}
+		} else {
+			out = append(out, lint.Skipf("OSS-402", "no ci.yml"))
+		}
+		wf := l.workflows()
+		for _, path := range lint.SortedKeys(wf) {
+			if slices.Contains(ciPaths, path) || !pushesBranches(wf[path]) ||
+				ciTrigger["workflow_dispatch"].MatchString(wf[path]) {
+				continue
+			}
+			out = append(out, lint.Warnf("OSS-402",
+				"a push to a branch starts it, and it has no workflow_dispatch trigger").At(path))
 		}
 		return out
 	},
@@ -603,6 +615,36 @@ var buildRules = []rule{{
 		return out
 	},
 }}
+
+// pushesBranches reports whether a push to a branch starts a workflow. A push
+// trigger that names tags and no branches runs on tags alone. A workflow that
+// does not parse starts nothing, and actionlint is the gate that reports it.
+func pushesBranches(body string) bool {
+	var wf struct {
+		On any `yaml:"on"`
+	}
+	if yaml.Unmarshal([]byte(body), &wf) != nil {
+		return false
+	}
+	switch on := wf.On.(type) {
+	case string:
+		return on == "push"
+	case []any:
+		return slices.Contains(on, any("push"))
+	case map[string]any:
+		push, ok := on["push"]
+		if !ok {
+			return false
+		}
+		filters, _ := push.(map[string]any)
+		_, branches := filters["branches"]
+		_, branchesIgnore := filters["branches-ignore"]
+		_, tags := filters["tags"]
+		_, tagsIgnore := filters["tags-ignore"]
+		return branches || branchesIgnore || !(tags || tagsIgnore)
+	}
+	return false
+}
 
 func (l *Linter) allWorkflows() string {
 	wf := l.workflows()

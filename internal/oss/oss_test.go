@@ -3,6 +3,7 @@ package oss
 import (
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"testing"
 
@@ -360,6 +361,43 @@ func TestActionsArePinned(t *testing.T) {
 		"@main", "@v7", 1)
 	if firstError(run(t, "OSS-404", config.OSS{}, files)) != nil {
 		t.Error("an action pinned to a version was reported")
+	}
+}
+
+func TestAWorkflowAPushStartsAlsoRunsOnDemand(t *testing.T) {
+	warned := func(files map[string]string) []string {
+		var at []string
+		for _, p := range run(t, "OSS-402", config.OSS{}, files) {
+			if p.Severity == lint.Warn {
+				at = append(at, p.Where)
+			}
+		}
+		return at
+	}
+	ci := "name: ci\non:\n  push:\n  pull_request:\n  workflow_dispatch:\n"
+	files := map[string]string{
+		".github/workflows/ci.yml":     ci,
+		".github/workflows/ledger.yml": "on:\n  push:\n    branches: [main]\n    paths: [\"ledger/**\"]\n",
+		".github/workflows/lint.yml":   "on: push\n",
+		".github/workflows/docs.yml":   "on: [push, pull_request]\n",
+	}
+	got := warned(files)
+	want := []string{".github/workflows/docs.yml", ".github/workflows/ledger.yml",
+		".github/workflows/lint.yml"}
+	if !slices.Equal(got, want) {
+		t.Errorf("warned at %v, want %v", got, want)
+	}
+
+	// A push of a tag is a release, which has no meaning on demand, and a
+	// workflow no push starts is not this rule's business.
+	files = map[string]string{
+		".github/workflows/ci.yml":      ci,
+		".github/workflows/ledger.yml":  "on:\n  push:\n    branches: [main]\n  workflow_dispatch:\n",
+		".github/workflows/release.yml": "on:\n  push:\n    tags: [\"v*\"]\n",
+		".github/workflows/pages.yml":   "on:\n  workflow_run:\n    workflows: [ci]\n",
+	}
+	if got := warned(files); len(got) != 0 {
+		t.Errorf("warned at %v", got)
 	}
 }
 
