@@ -3,17 +3,17 @@
   "title": "OSS-109 makes every project report conduct to codesweep.ai",
   "type": "improvement",
   "severity": "med",
-  "status": "in-progress",
+  "status": "closed",
   "foundBy": "user request (host): \"make OSS-109 check that code of conduct is identical except for the address\"",
   "opened": "2026-09-25",
-  "resolved": null,
+  "resolved": "2026-09-25",
   "stint": "2026-09-25 session: let a project name its own conduct address",
   "evidence": {
-    "commits": [],
+    "commits": ["242c032"],
     "integrated": [],
-    "verified": null
+    "verified": "At 242c032, `go test ./internal/oss/ -run CodeOfConduct -count=1` passes 2 tests and their 7 subtests. Against the rule at 7001d02, three of them fail. OSS-109 and OSS-303 both report another project's address, and the unfilled blank gives a finding that does not name it. The build of this change was run on a clone of vcr. With another project's address in the slot, `cs-lint oss` gives no OSS-109 or OSS-303 finding. With `[INSERT CONTACT METHOD]` it reports OSS-109 at `CODE_OF_CONDUCT.md:39`. `make ci` passed at 242c032 and recorded it as a local build."
   },
-  "resolution": null,
+  "resolution": "OSS-109 holds the code of conduct to the reference text except for its reporting address. That address may be any mail address in angle brackets. A slot left unfilled is reported on its own line, and an edit elsewhere is reported where it was made. The leak scan skips the file while it passes, so the project's address is not reported. SPEC R51 states the requirement.",
   "details": "OSS-109 holds `CODE_OF_CONDUCT.md` to this repository's copy byte for byte, and that copy names the family's own reporting address. A project outside the family cannot pass without sending its reports to that address. The covenant leaves the contact method blank for each project to fill. The check should hold every other byte and accept any mail address in that slot. The leak scan should keep skipping the file while it passes.",
   "notes": [],
   "links": []
