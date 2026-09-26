@@ -31,7 +31,8 @@ var (
 	// reporting address filled in and the attribution block intact. The text is
 	// under CC BY 4.0, which a paraphrase that drops the attribution does not
 	// satisfy, and a shortened copy loses the enforcement ladder that makes the
-	// document act on anything.
+	// document act on anything. The reporting address is this repository's own,
+	// and a project checked against this text may put its own there instead.
 	//
 	//go:embed CODE_OF_CONDUCT.md
 	CodeOfConductMD string

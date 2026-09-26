@@ -105,6 +105,64 @@ func verbatim(id, name, got, want string) []lint.Problem {
 			lint.Truncate(gotLine, 64), lint.Truncate(wantLine, 64)))}
 }
 
+// conductAddress is a code of conduct's reporting address, written as the
+// autolink the reference carries. Contributor Covenant leaves the contact
+// method blank for each project to fill, so it is the one span of the text
+// that is not the family's.
+var (
+	conductAddress     = regexp.MustCompile(`<` + mailAddr.String() + `>`)
+	conductAddressOnly = regexp.MustCompile(`^` + conductAddress.String() + `$`)
+)
+
+// conductFill returns what a code of conduct carries where the reference
+// carries its reporting address, and the line that starts on. ok is false
+// where the text around that span is not the reference's.
+func conductFill(body string) (fill string, line int, ok bool) {
+	ref := lintdoc.CodeOfConductMD
+	loc := conductAddress.FindStringIndex(ref)
+	if loc == nil {
+		return "", 0, false
+	}
+	before, after := ref[:loc[0]], ref[loc[1]:]
+	if len(body) < len(before)+len(after) ||
+		!strings.HasPrefix(body, before) || !strings.HasSuffix(body, after) {
+		return "", 0, false
+	}
+	return body[len(before) : len(body)-len(after)], strings.Count(before, "\n") + 1, true
+}
+
+// isConduct reports whether body is the reference code of conduct with a mail
+// address of its own, or the reference's, in the reporting slot.
+func isConduct(body string) bool {
+	fill, _, ok := conductFill(body)
+	return ok && conductAddressOnly.MatchString(fill)
+}
+
+// conduct reports how a code of conduct differs from the reference, leaving
+// the reporting address to the project. A file that differs elsewhere is held
+// to the reference with its own address in the slot, so the finding names the
+// line that was edited rather than the address.
+func conduct(body string) []lint.Problem {
+	const name = "CODE_OF_CONDUCT.md"
+	fill, line, ok := conductFill(body)
+	switch {
+	case ok && conductAddressOnly.MatchString(fill):
+		return nil
+	case ok:
+		return []lint.Problem{lint.Errorf("OSS-109",
+			"%s has %q where the reporting address goes, and it takes a mail address in angle brackets",
+			name, lint.Truncate(fill, 64)).At(fmt.Sprintf("%s:%d", name, line))}
+	}
+	want := lintdoc.CodeOfConductMD
+	if loc := conductAddress.FindStringIndex(want); loc != nil {
+		n := strings.Count(want[:loc[0]], "\n") + 1
+		if own := conductAddress.FindString(referenceLine(body, n)); own != "" {
+			want = want[:loc[0]] + own + want[loc[1]:]
+		}
+	}
+	return verbatim("OSS-109", name, body, want)
+}
+
 var licenceRules = []rule{{
 	id: "OSS-101", severity: lint.Error,
 	title: "A licence file sits at the repository root",
@@ -276,19 +334,21 @@ var licenceRules = []rule{{
 	},
 }, {
 	id: "OSS-109", severity: lint.Error,
-	title: "The code of conduct is the canonical text, unmodified",
+	title: "The code of conduct is the canonical text, with its own reporting address",
 	why: "Contributor Covenant is published under a Creative Commons licence that " +
 		"requires attribution, which a paraphrase with the attribution block dropped " +
 		"does not satisfy. Shortening it is worse than copying it: what gets cut is the " +
 		"enforcement ladder and the reporting address, and a code of conduct that names " +
 		"no consequence and no channel is a document nobody can act on. Carrying the " +
-		"text whole also means a reader recognises it without reading it.",
+		"text whole also means a reader recognises it without reading it. The reporting " +
+		"address is the one blank the covenant leaves, so it is the project's to fill " +
+		"with a mail address, and every other byte is held to the text.",
 	check: func(l *Linter) []lint.Problem {
 		body, ok := l.read("CODE_OF_CONDUCT.md")
 		if !ok {
 			return []lint.Problem{lint.Errorf("OSS-109",
 				"no CODE_OF_CONDUCT.md at the repository root")}
 		}
-		return verbatim("OSS-109", "CODE_OF_CONDUCT.md", body, lintdoc.CodeOfConductMD)
+		return conduct(body)
 	},
 }}

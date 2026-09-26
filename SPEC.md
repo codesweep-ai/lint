@@ -367,14 +367,17 @@ holder and the year in one place. Leaving the first to the project makes a
 NOTICE copied from a sibling and never edited visible as what it is.*
 
 **R51.** `CODE_OF_CONDUCT.md` **MUST** be the canonical Contributor Covenant
-text, byte for byte. A file held to a reference text **MUST NOT** be reported by
-the leak scan or the prose rules while it matches that reference. *The document
-is published under a licence that requires attribution. A paraphrase that drops
-the attribution block does not satisfy it. What a shortened copy loses is the
-enforcement ladder and the reporting address. That address is also a mail
-address, and its prose is not this project's to restyle. Without the exemption
-the rule set asks for the edit this requirement forbids, and no file satisfies
-both.*
+text, byte for byte, except for the reporting address. That address **MUST** be
+a mail address in angle brackets, and it **MAY** be any project's. A file held
+to a reference text **MUST NOT** be reported by the leak scan or the prose rules
+while it matches that reference. *The document is published under a licence
+that requires attribution. A paraphrase that drops the attribution block does
+not satisfy it. What a shortened copy loses is the enforcement ladder and the
+reporting address. The covenant leaves that address blank for each project to
+fill, so it is the one part of the text that is not the family's. It is also a
+mail address, published on purpose, and the prose around it is not this
+project's to restyle. Without the exemption the rule set asks for the edit this
+requirement forbids, and no file satisfies both.*
 
 **R51a.** CI **MUST** run on every pull request and on demand. Every other
 workflow a push to a branch starts **MUST** run on demand as well, and one only a

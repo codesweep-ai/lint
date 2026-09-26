@@ -1,0 +1,20 @@
+{
+  "id": "LNT-017",
+  "title": "OSS-109 makes every project report conduct to codesweep.ai",
+  "type": "improvement",
+  "severity": "med",
+  "status": "in-progress",
+  "foundBy": "user request (host): \"make OSS-109 check that code of conduct is identical except for the address\"",
+  "opened": "2026-09-25",
+  "resolved": null,
+  "stint": "2026-09-25 session: let a project name its own conduct address",
+  "evidence": {
+    "commits": [],
+    "integrated": [],
+    "verified": null
+  },
+  "resolution": null,
+  "details": "OSS-109 holds `CODE_OF_CONDUCT.md` to this repository's copy byte for byte, and that copy names the family's own reporting address. A project outside the family cannot pass without sending its reports to that address. The covenant leaves the contact method blank for each project to fill. The check should hold every other byte and accept any mail address in that slot. The leak scan should keep skipping the file while it passes.",
+  "notes": [],
+  "links": []
+}

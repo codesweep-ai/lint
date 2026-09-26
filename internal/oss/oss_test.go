@@ -174,14 +174,57 @@ func TestTheCodeOfConductIsTheCanonicalText(t *testing.T) {
 			t.Error("a paraphrase passed as the canonical text")
 		}
 	})
-	t.Run("a changed reporting address", func(t *testing.T) {
-		edited := strings.Replace(lintdoc.CodeOfConductMD,
-			"conduct@codesweep.ai", "someone@example.com", 1)
-		if firstError(run(t, "OSS-109", config.OSS{},
-			map[string]string{"CODE_OF_CONDUCT.md": edited})) == nil {
-			t.Error("a code of conduct pointing somewhere else passed")
+	t.Run("another project's reporting address", func(t *testing.T) {
+		// The covenant leaves the contact method for the project to fill, so
+		// the address is the one part of the text that is not the family's.
+		got := run(t, "OSS-109", config.OSS{}, map[string]string{
+			"CODE_OF_CONDUCT.md": conductReportingTo(t, "<conduct@acme.org>")})
+		if firstError(got) != nil {
+			t.Errorf("a code of conduct naming its own address was reported: %v", got)
 		}
 	})
+	t.Run("the covenant's blank left unfilled", func(t *testing.T) {
+		got := firstError(run(t, "OSS-109", config.OSS{}, map[string]string{
+			"CODE_OF_CONDUCT.md": conductReportingTo(t, "[INSERT CONTACT METHOD]")}))
+		if got == nil {
+			t.Fatal("a code of conduct naming no reporting address passed")
+		}
+		if !strings.Contains(got.Message, "[INSERT CONTACT METHOD]") ||
+			!strings.Contains(got.Message, "mail address") {
+			t.Errorf("the finding does not say what the slot holds and wants: %q", got.Message)
+		}
+	})
+	t.Run("an address without its angle brackets", func(t *testing.T) {
+		if firstError(run(t, "OSS-109", config.OSS{}, map[string]string{
+			"CODE_OF_CONDUCT.md": conductReportingTo(t, "conduct@acme.org")})) == nil {
+			t.Error("an address outside the autolink the text carries passed")
+		}
+	})
+	t.Run("another address and an edit elsewhere", func(t *testing.T) {
+		// Filling the slot does not open the rest of the text.
+		edited := strings.Replace(conductReportingTo(t, "<conduct@acme.org>"),
+			"promptly and fairly", "when we can", 1)
+		edited = strings.Replace(edited, "## Our Pledge", "## Our Promise", 1)
+		got := firstError(run(t, "OSS-109", config.OSS{},
+			map[string]string{"CODE_OF_CONDUCT.md": edited}))
+		if got == nil {
+			t.Fatal("an edited code of conduct passed because its address changed too")
+		}
+		if !strings.HasSuffix(got.Where, ":3") {
+			t.Errorf("the finding points at %q, not the first edited line", got.Where)
+		}
+	})
+}
+
+// conductReportingTo is the reference code of conduct with slot in place of
+// the reporting address it carries, angle brackets included.
+func conductReportingTo(t *testing.T, slot string) string {
+	t.Helper()
+	const carried = "<conduct@codesweep.ai>"
+	if !strings.Contains(lintdoc.CodeOfConductMD, carried) {
+		t.Fatalf("the reference no longer reports to %s", carried)
+	}
+	return strings.Replace(lintdoc.CodeOfConductMD, carried, slot, 1)
 }
 
 func TestTheCodeOfConductIsNotScannedAsALeak(t *testing.T) {
@@ -191,6 +234,11 @@ func TestTheCodeOfConductIsNotScannedAsALeak(t *testing.T) {
 	files := map[string]string{"CODE_OF_CONDUCT.md": lintdoc.CodeOfConductMD}
 	if got := run(t, "OSS-303", config.OSS{}, files); firstError(got) != nil {
 		t.Errorf("the code of conduct's own address was reported as a leak: %v", got)
+	}
+	// A project's own reporting address is published on purpose, as the family's is.
+	files["CODE_OF_CONDUCT.md"] = conductReportingTo(t, "<conduct@acme.org>")
+	if got := run(t, "OSS-303", config.OSS{}, files); firstError(got) != nil {
+		t.Errorf("a project's own reporting address was reported as a leak: %v", got)
 	}
 	// The exemption is conditional on the exact text: anything added is scanned.
 	files["CODE_OF_CONDUCT.md"] = lintdoc.CodeOfConductMD +

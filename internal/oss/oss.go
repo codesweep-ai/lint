@@ -156,12 +156,13 @@ func (l *Linter) skipped(path string) bool {
 // the reference is reviewed once for the whole family rather than per
 // repository. Without this the rule set contradicts itself: OSS-109 requires a
 // code of conduct that names a reporting address, and OSS-303 then reports that
-// address as a leak. The exemption is conditional on the exact text, so a file
-// with anything added to it is scanned like any other.
+// address as a leak. The exemption is conditional on the exact text, the
+// project's own reporting address aside, so a file with anything added to it is
+// scanned like any other.
 func (l *Linter) isReference(path string) bool {
 	switch path {
 	case "CODE_OF_CONDUCT.md":
-		return l.text[path] == lintdoc.CodeOfConductMD
+		return isConduct(l.text[path])
 	case "LICENSE":
 		return l.text[path] == lintdoc.LicenceText
 	}
