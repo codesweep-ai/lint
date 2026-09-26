@@ -250,9 +250,14 @@ var historyProbes = []struct {
 		"a path into a person's own state"},
 	{`-----BEGIN [A-Z ]*PRIVATE KEY-----`,
 		regexp.MustCompile(`-----BEGIN [A-Z ]*PRIVATE KEY-----`), "a private key"},
-	{`sk-ant-[A-Za-z0-9_-]{16,}`, regexp.MustCompile(`sk-ant-[A-Za-z0-9_-]{16,}`), "an Anthropic key"},
-	{`gh[pousr]_[A-Za-z0-9]{30,}`, regexp.MustCompile(`gh[pousr]_[A-Za-z0-9]{30,}`), "a GitHub token"},
-	{`AKIA[0-9A-Z]{16}`, regexp.MustCompile(`AKIA[0-9A-Z]{16}`), "an AWS access key id"},
+	// The confirming patterns start at a word boundary, as the tree scan's do.
+	// Without it a key prefix counts anywhere, and base64 carries every one of
+	// them by chance: a recorded model turn holds kilobytes of ciphertext, and
+	// one of them read as a GitHub token because "...9Cghs_pJov..." was in it.
+	// The probe before each stays broad, because git's -G takes no \b.
+	{`sk-ant-[A-Za-z0-9_-]{16,}`, regexp.MustCompile(`\bsk-ant-[A-Za-z0-9_-]{16,}`), "an Anthropic key"},
+	{`gh[pousr]_[A-Za-z0-9]{30,}`, regexp.MustCompile(`\bgh[pousr]_[A-Za-z0-9]{30,}`), "a GitHub token"},
+	{`AKIA[0-9A-Z]{16}`, regexp.MustCompile(`\bAKIA[0-9A-Z]{16}\b`), "an AWS access key id"},
 }
 
 // historyHit reports whether a match found in a past diff is a real leak.

@@ -852,6 +852,31 @@ func TestDeclaredSkipsApplyToTheHistoryToo(t *testing.T) {
 	t.Fatal("no OSS-708 rule")
 }
 
+func TestAKeyPrefixInsideCiphertextIsNotALeak(t *testing.T) {
+	// A recorded model turn carries its reasoning as base64 ciphertext, and a
+	// key prefix turns up in random base64 by chance. One did, as a GitHub
+	// token: "...9Cghs_" and 47 more characters, in the middle of a blob. A key
+	// starts at a word boundary, and that is what tells the two apart. Built
+	// here rather than written out, so this file adds no token-shaped literal
+	// to the history it is itself scanned in.
+	token := "gh" + "s_" + strings.Repeat("pJov7Qx2", 6)[:47]
+	blob := "\"encrypted_content\": \"Ghr1-Zk9C" + token + "_YWFB1A-fhN1I\"\n"
+	if got := run(t, "OSS-305", config.OSS{}, map[string]string{"cassette.json": blob}); firstError(got) != nil {
+		t.Errorf("the tree scan reported a key prefix inside ciphertext: %v", got)
+	}
+	if got := runHistory(t, "OSS-708", linttest.Repo(t, map[string]string{"cassette.json": blob})); firstError(got) != nil {
+		t.Errorf("the history scan reported a key prefix inside ciphertext: %v", got)
+	}
+	// The same characters standing as a value are still a token, in both.
+	standing := "token = \"" + token + "\"\n"
+	if firstError(run(t, "OSS-305", config.OSS{}, map[string]string{"c.txt": standing})) == nil {
+		t.Error("the tree scan passed a GitHub token standing on its own")
+	}
+	if firstError(runHistory(t, "OSS-708", linttest.Repo(t, map[string]string{"c.txt": standing}))) == nil {
+		t.Error("the history scan passed a GitHub token standing on its own")
+	}
+}
+
 func TestScansWithNothingToReadReportASkip(t *testing.T) {
 	// R4: a check that could not run reports a skip rather than a pass. A leak
 	// scan that inspected zero files must never be indistinguishable from one
