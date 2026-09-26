@@ -3,17 +3,19 @@
   "title": "OSS-708 reads a key prefix anywhere in a diff, so random base64 fails the gate as a GitHub token",
   "type": "defect",
   "severity": "high",
-  "status": "in-progress",
+  "status": "closed",
   "foundBy": "session agent, when campaign's `make ci` failed OSS-708 on a re-recorded cassette",
   "opened": "2026-09-26",
-  "resolved": null,
+  "resolved": "2026-09-26",
   "stint": "agent-cli-bump",
   "evidence": {
-    "commits": [],
+    "commits": [
+      "c12282e"
+    ],
     "integrated": [],
-    "verified": null
+    "verified": "`go test ./internal/oss/ -run TestAKeyPrefixInsideCiphertextIsNotALeak -count=1` passes on c12282e and fails without its change to history.go, where OSS-708 reported the ciphertext as a GitHub token. `make ci` passed on c12282e. Campaign pinned to that build ran `make oss` with 0 errors, where it had failed OSS-708 on a recorded cassette in its history."
   },
-  "resolution": null,
+  "resolution": "The history scan's confirming patterns for Anthropic keys, GitHub tokens and AWS key ids start at a word boundary, as the tree scan's do. A key prefix in the middle of base64 no longer counts, and one standing as a value still does. The length a GitHub token may have is left as it was, at 30 or more, because GitHub says its token lengths can change.",
   "details": "Campaign's `make ci` failed OSS-708 with `a GitHub token is in 1 commit(s)`. The match was `ghs_` and 47 more characters in the middle of a Codex `encrypted_content` field. That field is reasoning ciphertext in base64, and the characters before the prefix were `9C`. It was not a token.\n\nThe history scan confirms each probe with a pattern that has no word boundary in front, so a key prefix counts anywhere in a diff. The tree scan anchors the same patterns with `\\b`, and passes the same file. Base64 turns up every prefix by chance, and a recorded model turn carries kilobytes of it. A repository that commits recordings meets this again at random, and the only way through is to rewrite its history.",
   "notes": [],
   "links": []
