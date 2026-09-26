@@ -98,7 +98,9 @@ oss:
 
   # ada and grace are the fictional people the tests use.
   homeAllow: ["user", "you", "name", "runner", "ada", "grace"]
-  emailAllow: ["example.com", "example.org", "example.net", "noreply.github.com"]
+  # github.com because git@github.com is the user of every GitHub SSH remote,
+  # which npm/build.mjs reads the owner out of, and its records quote on purpose.
+  emailAllow: ["example.com", "example.org", "example.net", "noreply.github.com", "github.com"]
 
   # A linter necessarily contains the patterns it searches for. The leak scan
   # and the sibling-path scan would otherwise report this tool's own rules as

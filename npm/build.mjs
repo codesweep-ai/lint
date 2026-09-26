@@ -150,7 +150,9 @@ function repositoryName() {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     });
-    const m = url.trim().match(/[@/]github\.com[:/]([^/]+)\/([^/]+?)(?:\.git)?\/?$/);
+    // `[^:/]*` after github.com takes an SSH host alias, such as the
+    // git@github.com-<account>:<owner>/<name>.git a fork's clone uses.
+    const m = url.trim().match(/[@/]github\.com[^:/]*[:/]+([^/]+)\/([^/]+?)(?:\.git)?\/?$/);
     if (m) return `${m[1]}/${m[2]}`;
   } catch {
     // No git or no checkout, which is a build of this project's own source.
