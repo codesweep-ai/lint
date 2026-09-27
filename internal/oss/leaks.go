@@ -83,8 +83,8 @@ func (l *Linter) leakPatterns() []leakPattern {
 					continue
 				}
 				tld := domain
-				if i := strings.LastIndex(domain, "."); i >= 0 {
-					tld = domain[i+1:]
+				if _, suffix, ok := strings.CutLast(domain, "."); ok {
+					tld = suffix
 				}
 				if allowed(tld, reservedTLDs) {
 					continue

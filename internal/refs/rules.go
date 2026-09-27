@@ -60,8 +60,8 @@ var rules = []rule{{
 				// extension is short and lower case; a camelCase tail is a symbol.
 				parts := strings.Split(token, "/")
 				tail := parts[len(parts)-1]
-				if i := strings.LastIndex(tail, "."); i >= 0 {
-					if !shortExt.MatchString(tail[i+1:]) {
+				if _, suffix, ok := strings.CutLast(tail, "."); ok {
+					if !shortExt.MatchString(suffix) {
 						continue
 					}
 				}
