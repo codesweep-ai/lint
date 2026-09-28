@@ -11,7 +11,7 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/codesweep-ai/ledger v0.0.0-20260920230337-e974225af350 // indirect
-	github.com/codesweep-ai/npmrevs v0.0.0-20260921040735-e92f1c0bd295 // indirect
+	github.com/codesweep-ai/npmrevs v0.0.0-20260928070744-af147f36ecb6 // indirect
 	github.com/docker/cli v29.7.2+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.9.3 // indirect
 	github.com/fatih/color v1.19.0 // indirect
