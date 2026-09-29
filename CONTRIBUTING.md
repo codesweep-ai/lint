@@ -235,7 +235,8 @@ channel, cutting no tag and making no release. It runs when `ci` finishes, and
 builds the commit `ci` tested. It skips that commit once main's head changes
 more than `ledger/` after it, and the head publishes when its own `ci` passes.
 Every publish also writes an `npm` commit status to its commit, a failed one
-included. It stores no credential:
+included. It finishes once npmjs.com lists the new version, so the CI status
+file published after it names that version. It stores no credential:
 each package names the workflow as a trusted publisher. To publish one commit by
 hand, or to see what a publish would send without sending it, run it from the
 Actions tab or with `gh workflow run npm.yml`. A dispatched publish waits for
