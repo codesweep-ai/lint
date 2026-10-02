@@ -126,7 +126,7 @@ jobs:
       - uses: actions/setup-node@v6
         if: steps.head.outputs.publish != 'false'
         with:
-          node-version: 24.x
+          node-version: "24.21.0"
           registry-url: https://registry.npmjs.org
 
       # Every platform, because the wrapper depends on all four and a partial

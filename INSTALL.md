@@ -37,9 +37,9 @@ go tool cs-lint prose
 
 ### With npm
 
-Take this route in a project that already has a `package.json`. No Go toolchain
-is involved: the binary is packaged for npm and installs like any other
-dev dependency.
+Take this route in a project that already has a `package.json`, on Node 24.21.0
+or newer. No Go toolchain is involved: the binary is packaged for npm and
+installs like any other dev dependency.
 
 ```bash
 npm install --save-dev @codesweep-ai/lint

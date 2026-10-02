@@ -64,7 +64,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 24.x
+          node-version: "24.21.0"
 
       # Every platform, as the npm workflow builds. The before hooks are skipped:
       # ci has already vetted and tested this commit.

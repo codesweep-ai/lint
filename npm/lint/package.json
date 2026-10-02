@@ -5,7 +5,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "engines": {
-    "node": ">=18.17"
+    "node": ">=24.21.0"
   },
   "repository": {
     "type": "git",
