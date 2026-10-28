@@ -260,10 +260,31 @@ func TestWrapKeepsTheIndent(t *testing.T) {
 func TestOSSListPrintsWhatItFound(t *testing.T) {
 	root := scratch(t, map[string]string{"README.md": "# x\n"})
 	out, _ := runCLI(t, root, "oss", "--list")
-	for _, want := range []string{"project:", "tracked:", "rules:"} {
+	for _, want := range []string{"project:", "tracked:", "history:", "rules:"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("--list does not print %q: %s", want, out)
 		}
+	}
+}
+
+// --since and --days each choose the commits the history scan reads, so a run
+// given both, or an age that cannot be one, could not say which it read. It
+// stops as a broken invocation rather than reporting on a guess.
+func TestTheHistoryScanTakesOneRange(t *testing.T) {
+	root := scratch(t, map[string]string{"README.md": "# x\n"})
+	for _, args := range [][]string{
+		{"oss", "--since", "HEAD", "--days", "3"},
+		{"oss", "--days", "-1"},
+	} {
+		out, exit, err := tryCLI(t, root, args...)
+		if err == nil || exit != exitBadUsage {
+			t.Errorf("%v exited %d, want %d: %s", args, exit, exitBadUsage, out)
+		}
+	}
+	// An empty --since is no commit at all, which is what a workflow passes
+	// before its first green run.
+	if _, _, err := tryCLI(t, root, "oss", "--since", "", "--days", "3"); err != nil {
+		t.Errorf("an empty --since beside --days was refused: %v", err)
 	}
 }
 

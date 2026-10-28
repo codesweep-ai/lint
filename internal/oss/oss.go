@@ -57,6 +57,11 @@ type Linter struct {
 	repo   *lint.Repo
 	Online bool
 
+	// Since and Days choose the commits the diff scan reads, as historySpan
+	// says. Days is nil where nobody asked, and 0 reads every commit.
+	Since string
+	Days  *int
+
 	text       map[string]string // tracked files that read as text
 	order      []string          // their paths, sorted, for stable reporting
 	unreadable []string          // tracked, not a known asset, not decodable

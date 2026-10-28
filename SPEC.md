@@ -67,7 +67,7 @@ it, so it is true on the day somebody checks and drifts afterwards.
 cs-lint prose    [--stats] [--list] [--explain]
 cs-lint refs     [--review] [--list] [--explain]
 cs-lint surface  [--run] [--review] [--list] [--explain]
-cs-lint oss      [--online] [--review] [--list] [--explain]
+cs-lint oss      [--online] [--since <commit>] [--days <n>] [--review] [--list] [--explain]
 cs-lint manual
 cs-lint version
 ```
@@ -118,7 +118,8 @@ hide the findings of the other sixty.*
 **R8.** The process **MUST** exit 1 when any rule reported an error.
 
 **R9.** The process **MUST** exit 2 when it could not run at all: an unreadable
-tuning file, a waiver naming no rule, an unknown flag, an unknown subcommand. *A gate needs to tell "the
+tuning file, a waiver naming no rule, an unknown flag, an unknown subcommand.
+So **MUST** a flag given a value it cannot take. *A gate needs to tell "the
 repository has a problem" from "the linter is broken", because the first is a
 finding and the second is a broken build.*
 
@@ -277,6 +278,15 @@ which is which, the flag **MUST** decide. *A commit nobody else has costs one
 amend. Reading the flag alone softened exactly that case at the moment the
 repository started mattering to strangers, and a clone that has never fetched
 cannot answer the question at all.*
+
+**R39a.** The scan over past diffs **MUST** read only the commits on the
+checked-out branch that earlier runs have not read. It **MUST** take the first
+that applies: the commits `--since` does not reach, the last `--days` days,
+those no remote carries, or the last ten days. `--days 0` **MUST**
+read every commit on every ref. A run that read less than every commit **MUST**
+count a skip that says how many it read. *Its cost grows with the history, and
+a diff read clean once stays clean. Every other branch is read by the runs on
+that branch.*
 
 **R40.** A rule that asks the forge about the repository **MUST NOT** run
 unless asked.
@@ -649,6 +659,10 @@ linter that guesses, and a linter that guesses produces noise.
 **A binary blob is opaque.** The history scan reads the text of each diff, so a
 leak inside a compiled file or an editor swap file that was later deleted is
 past it.
+
+**A narrowed history scan trusts the runs before it.** A commit outside the
+range is not read again, so a pattern added after it was read reaches it only
+through `--days 0`.
 
 **A sample can only be re-run when it is safe to run.** A verb that writes
 cannot be re-run on every gate, so a document that only ever shows writing

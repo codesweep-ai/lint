@@ -1,11 +1,13 @@
 package oss
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	lintdoc "github.com/codesweep-ai/lint"
 	"github.com/codesweep-ai/lint/internal/config"
@@ -1716,5 +1718,165 @@ func TestAContinuedPrerequisiteListIsOneList(t *testing.T) {
 	}
 	if got := run(t, "OSS-418", config.OSS{}, files); len(got) != 0 {
 		t.Errorf("a continued ci prerequisite list was misread: %v", got)
+	}
+}
+
+// leak is a diff line the history scan reports: a home directory naming
+// somebody who is not a placeholder.
+const leak = "the run wrote to /home/jdoe/work\n"
+
+// commitDated commits a file holding the body given, authored and committed
+// the number of days ago given, so a test can put a commit on either side of
+// an age.
+func commitDated(t *testing.T, repo *lint.Repo, name, body string, daysAgo int) {
+	t.Helper()
+	if err := os.WriteFile(repo.Path(name), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	date := fmt.Sprintf("@%d +0000", time.Now().AddDate(0, 0, -daysAgo).Unix())
+	for _, args := range [][]string{{"add", name}, {"commit", "-q", "-m", "Add " + name}} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repo.Root
+		cmd.Env = append(os.Environ(), "GIT_AUTHOR_DATE="+date, "GIT_COMMITTER_DATE="+date)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+}
+
+func scanWith(t *testing.T, repo *lint.Repo, since string, days *int) []lint.Problem {
+	t.Helper()
+	l := New(config.Default().OSS, repo)
+	l.Since, l.Days = since, days
+	for _, r := range rules {
+		if r.id == "OSS-708" {
+			return l.runOne(r)
+		}
+	}
+	t.Fatal("no OSS-708 rule")
+	return nil
+}
+
+// left is the skip a narrowed scan reports, or nil where it read everything.
+func left(problems []lint.Problem) *lint.Problem {
+	for i, p := range problems {
+		if p.Severity == lint.Skip {
+			return &problems[i]
+		}
+	}
+	return nil
+}
+
+// A commit a remote carries was read by the run that pushed it, so a local run
+// reads what it has not pushed yet, and says how much it left.
+func TestTheHistoryScanReadsWhatNoRemoteCarries(t *testing.T) {
+	repo := linttest.Repo(t, map[string]string{"README.md": "# x\n"})
+	commitDated(t, repo, "notes.txt", leak, 0)
+	publish(t, repo)
+	commitDated(t, repo, "more.txt", "nothing private\n", 0)
+
+	got := scanWith(t, repo, "", nil)
+	if firstError(got) != nil {
+		t.Errorf("a leak a remote already carries was read again: %v", got)
+	}
+	if s := left(got); s == nil || !strings.Contains(s.Message, "read 1 of 3 commits") ||
+		!strings.Contains(s.Message, "no remote carries") {
+		t.Errorf("the narrowed scan does not say what it read: %v", got)
+	}
+	if firstError(scanWith(t, repo, "", new(0))) == nil {
+		t.Error("--days 0 did not read the commit a remote carries")
+	}
+}
+
+// With nothing left to push, as in CI, a run reads the last ten days rather
+// than nothing at all.
+func TestWithNothingToPushTheScanReadsTheLastTenDays(t *testing.T) {
+	repo := linttest.Repo(t, map[string]string{"README.md": "# x\n"})
+	commitDated(t, repo, "old.txt", leak, 30)
+	commitDated(t, repo, "new.txt", "nothing private\n", 0)
+	publish(t, repo)
+
+	got := scanWith(t, repo, "", nil)
+	if firstError(got) != nil {
+		t.Errorf("a leak thirty days old was read: %v", got)
+	}
+	if s := left(got); s == nil || !strings.Contains(s.Message, "last 10 day(s)") {
+		t.Errorf("the scan does not say it read the last ten days: %v", got)
+	}
+
+	commitDated(t, repo, "recent.txt", leak, 2)
+	gitIn(t, repo, "push", "-q", "origin", "HEAD:refs/heads/main")
+	if firstError(scanWith(t, repo, "", nil)) == nil {
+		t.Error("a leak two days old was not read")
+	}
+	if firstError(scanWith(t, repo, "", new(1))) != nil {
+		t.Error("--days 1 read a commit two days old")
+	}
+}
+
+// --since names the last commit a run read clean, and the scan reads what came
+// after it.
+func TestSinceReadsWhatTheCommitDoesNotReach(t *testing.T) {
+	repo := linttest.Repo(t, map[string]string{"README.md": "# x\n"})
+	commitDated(t, repo, "notes.txt", leak, 0)
+	commitDated(t, repo, "more.txt", "nothing private\n", 0)
+
+	got := scanWith(t, repo, "HEAD~1", nil)
+	if firstError(got) != nil {
+		t.Errorf("a leak --since reaches was read: %v", got)
+	}
+	if s := left(got); s == nil || !strings.Contains(s.Message, "read 1 of 3 commits") {
+		t.Errorf("the scan does not say what it read: %v", got)
+	}
+	if firstError(scanWith(t, repo, "HEAD~2", nil)) == nil {
+		t.Error("a leak after the --since commit was not read")
+	}
+}
+
+// A --since the clone does not hold is the last run before a rewrite, so the
+// scan reads the whole branch and says why. A value shaped like an option
+// never reaches git as one.
+func TestASinceNamingNoCommitReadsTheWholeBranch(t *testing.T) {
+	repo := linttest.Repo(t, map[string]string{"README.md": "# x\n"})
+	commitDated(t, repo, "notes.txt", leak, 0)
+	for _, since := range []string{"0123456789abcdef0123456789abcdef01234567", "--output=written"} {
+		got := scanWith(t, repo, since, nil)
+		if firstError(got) == nil {
+			t.Errorf("--since %s left the leak unread: %v", since, got)
+		}
+		warned := slices.ContainsFunc(got, func(p lint.Problem) bool {
+			return p.Severity == lint.Warn && strings.Contains(p.Message, since)
+		})
+		if !warned {
+			t.Errorf("--since %s was dropped without a word: %v", since, got)
+		}
+	}
+	if _, err := os.Stat(repo.Path("written")); err == nil {
+		t.Error("a --since shaped like an option reached git as one")
+	}
+}
+
+// A run reads the branch checked out, and leaves every other branch to the
+// runs on that branch. --days 0 is the audit before publishing, and reads
+// every ref, because publishing a repository publishes them all.
+func TestOnlyDaysZeroReadsEveryRef(t *testing.T) {
+	repo := linttest.Repo(t, map[string]string{"README.md": "# x\n"})
+	gitIn(t, repo, "checkout", "-q", "-b", "side")
+	commitDated(t, repo, "notes.txt", leak, 0)
+	gitIn(t, repo, "checkout", "-q", "-")
+
+	got := scanWith(t, repo, "", nil)
+	if firstError(got) != nil {
+		t.Errorf("a leak on another branch was read: %v", got)
+	}
+	if s := left(got); s == nil || !strings.Contains(s.Message, "read 1 of 2 commits") {
+		t.Errorf("the scan does not say it left the other branch: %v", got)
+	}
+	got = scanWith(t, repo, "", new(0))
+	if firstError(got) == nil {
+		t.Error("--days 0 did not read the other branch")
+	}
+	if left(got) != nil {
+		t.Errorf("a scan of every commit reported leaving some: %v", got)
 	}
 }

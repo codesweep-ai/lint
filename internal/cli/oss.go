@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -11,6 +12,8 @@ import (
 
 func ossCmd(opt *options) *cobra.Command {
 	var online, review bool
+	var since string
+	var days int
 	cmd := &cobra.Command{
 		Use:   "oss",
 		Short: "Check that this repository can be published",
@@ -23,15 +26,29 @@ func ossCmd(opt *options) *cobra.Command {
 			"written down: a username is the segment after /home/ that is not a\n" +
 			"placeholder the project ships, and the name of whoever runs the check comes\n" +
 			"from the environment. A term no pattern can infer goes in .leakterms at the\n" +
-			"root, which is gitignored.",
+			"root, which is gitignored.\n\n" +
+			"The scan over past diffs reads the commits on the checked-out branch that\n" +
+			"earlier runs have not: those --since does not reach, or the last --days\n" +
+			"days. Without either it reads the commits no remote carries, and failing\n" +
+			"those the last 10 days. --days 0 reads every commit on every ref.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if since != "" && cmd.Flags().Changed("days") {
+				return errors.New("--since and --days each choose the commits the history scan reads; give one")
+			}
+			if days < 0 {
+				return fmt.Errorf("--days takes a number of days, 0 or more, and was given %d", days)
+			}
 			cfg, repo, err := load(opt)
 			if err != nil {
 				return err
 			}
 			l := oss.New(cfg.OSS, repo)
 			l.Online = online
+			l.Since = since
+			if cmd.Flags().Changed("days") {
+				l.Days = &days
+			}
 			out := cmd.OutOrStdout()
 
 			switch {
@@ -50,6 +67,10 @@ func ossCmd(opt *options) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&online, "online", false, "ask the forge about the repository itself")
+	cmd.Flags().StringVar(&since, "since", "",
+		"the history scan reads only the commits this one does not reach")
+	cmd.Flags().IntVar(&days, "days", oss.DefaultDays,
+		"the history scan reads the commits of the last n days, 0 for every one")
 	cmd.Flags().BoolVar(&review, "review", false, "print the review pack for what a pattern cannot decide")
 	cmd.Flags().BoolVar(&opt.explain, "explain", false, "every rule, and what it wants")
 	cmd.Flags().BoolVar(&opt.list, "list", false, "what it found to check")
@@ -60,5 +81,6 @@ func listOSS(w io.Writer, l *oss.Linter, tracked []string) {
 	fmt.Fprintf(w, "project:  %s\n", l.Project())
 	fmt.Fprintf(w, "remote:   %s\n", orNone(l.Slug()))
 	fmt.Fprintf(w, "tracked:  %d file(s)\n", len(tracked))
+	fmt.Fprintf(w, "history:  %s\n", orNone(l.HistoryScan()))
 	fmt.Fprintf(w, "rules:    %d\n", len(oss.Explain()))
 }

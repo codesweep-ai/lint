@@ -10,7 +10,7 @@
 cs-lint prose    [--stats] [--list] [--explain]
 cs-lint refs     [--review] [--list] [--explain]
 cs-lint surface  [--run] [--review] [--list] [--explain]
-cs-lint oss      [--online] [--review] [--list] [--explain]
+cs-lint oss      [--online] [--since <commit>] [--days <n>] [--review] [--list] [--explain]
 cs-lint manual
 cs-lint version
 cs-lint [command] --help
@@ -124,9 +124,38 @@ tracked file. They also cover the build, the release, what a stranger's clone
 can do, the ledger where there is one, the git history, and the repository's own
 settings on the forge.
 
+The scan over past diffs, `OSS-708`, reads the commits on the checked-out branch
+that earlier runs have not read. It takes the first of these that applies:
+
+1. With `--since`, it reads the commits that commit does not reach.
+2. With `--days`, it reads the commits of the last that many days.
+3. Otherwise it reads the commits no remote carries. In a clone with no remote,
+   that is the whole branch.
+4. Where a remote carries every commit, it reads the commits of the last 10
+   days.
+
+`--days 0` reads every commit on every ref instead. That is the audit to run
+before the repository is published, and the run that applies a new pattern to
+the old history. A run that read less than every commit counts a skip saying
+how many it read, and `--verbose` prints it.
+
+In CI, `--since` takes the last commit a workflow passed on, so each run reads
+what the one before it did not:
+
+```bash
+last=$(gh run list --workflow ci.yml --branch main --status success --limit 1 \
+  --json headSha --jq '.[0].headSha // ""')
+cs-lint oss --since "$last"
+```
+
+An empty `--since` is the same as leaving it out, which is what that command
+passes before the first green run.
+
 | Flag | Meaning |
 |---|---|
 | `--online` | Ask the forge about the repository itself. Needs `gh`. |
+| `--since <commit>` | The history scan reads only the commits this one does not reach. |
+| `--days <n>` | The history scan reads only the commits of the last `n` days. `0` reads every commit on every ref. |
 | `--review` | Print the review pack: the questions a pattern cannot decide. |
 | `--list` | Print what was found to check, and stop. |
 | `--explain` | Print every rule, what it wants, and why it exists. |
@@ -360,7 +389,7 @@ differently on two machines is a check nobody can act on.
 |---|---|
 | `0` | No rule reported an error. Warnings and skips may have been printed. |
 | `1` | A rule reported an error. |
-| `2` | The tool could not run: an unreadable tuning file, a waiver naming no rule, an unknown flag, or an unknown subcommand. |
+| `2` | The tool could not run: an unreadable tuning file, a waiver naming no rule, an unknown flag, a flag value it cannot take, or an unknown subcommand. |
 
 The difference between 1 and 2 is the one a gate needs: the first is a finding
 in the repository, and the second is a broken build.
@@ -381,6 +410,24 @@ A tuning file written before the split. See the migration table above.
 
 A waiver still naming a rule identifier from before the split. Rewrite it with
 the new identifier, under the section that carries the rule.
+
+**`cs-lint: --since and --days each choose the commits the history scan reads; give one`**
+**`cs-lint: --days takes a number of days, 0 or more, and was given -1`**
+
+The two flags answer the same question, so a run given both could not say
+which commits it read. Pass one. The run stops with exit 2.
+
+**`OSS-708 ... --since <commit> names no commit in this clone, so every commit HEAD has was read`**
+
+The commit `--since` names is not in this clone. The branch was rewritten
+since that commit passed, or the checkout is shallow. The scan reads the whole
+branch instead, which takes longer and misses nothing. A workflow that passes
+`--since` needs `fetch-depth: 0` on its checkout.
+
+**`OSS-708 skip read 52 of 1115 commits, ...`**, printed under `--verbose`
+
+The history scan covered the commits no earlier run had, and left the rest to
+the runs that checked them. `--days 0` reads every one.
 
 **`cs-lint: verb list: error parsing regexp: ...`**
 **`cs-lint: countable list: error parsing regexp: ...`**
@@ -529,6 +576,12 @@ Find out what a readiness run would cover before trusting a clean report:
 ```bash
 cs-lint oss --list
 cs-lint oss --verbose
+```
+
+Read every commit of the history, as before publishing:
+
+```bash
+cs-lint oss --days 0
 ```
 
 Walk the documented commands, then check the interface:

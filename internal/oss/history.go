@@ -5,7 +5,9 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/codesweep-ai/lint/internal/lint"
@@ -228,6 +230,120 @@ func (l *Linter) pastFindings(rule string, carried lint.Severity, shas []string,
 		})
 	}
 	return out
+}
+
+// DefaultDays is how far back the diff scan reads where nothing narrower
+// applies: no commit was named, no age was asked for, and a remote carries
+// every commit in the clone.
+const DefaultDays = 10
+
+// span is the commits the diff scan reads.
+type span struct {
+	revs  []string // what git log takes to select them
+	what  string   // which they are, as the report names them
+	stale string   // a --since that named no commit here
+}
+
+// historySpan chooses the commits OSS-708 reads.
+//
+// It is the one history rule whose cost grows with the history, because it
+// reads every diff, and a diff read clean once stays clean. So a run reads
+// what the runs before it have not, on the branch checked out: every other
+// branch is read by the runs on that branch. Where the caller knows which
+// commit the last run read up to, that is --since. Where it asks for an age,
+// that is --days. Otherwise it is the commits no remote carries, which no
+// other clone has read, and failing those, the last DefaultDays days.
+//
+// --days 0 alone reads every ref, because publishing a repository publishes
+// them all, and that is the audit to run before it is.
+func (l *Linter) historySpan() span {
+	branch := span{revs: []string{"HEAD"}, what: "those HEAD has"}
+	if l.Since != "" {
+		// A value that reads as an option never reaches git as one, and git log
+		// gets the commit it resolved to rather than the value.
+		var sha string
+		var err error
+		if !strings.HasPrefix(l.Since, "-") {
+			sha, err = l.repo.Git("rev-parse", "--verify", "--quiet", l.Since+"^{commit}")
+		}
+		if sha = strings.TrimSpace(sha); err != nil || sha == "" {
+			branch.stale = l.Since
+			return branch
+		}
+		return span{revs: []string{"HEAD", "--not", sha},
+			what: "those HEAD has and " + shortSHA(sha) + " does not"}
+	}
+	if l.Days != nil {
+		return lastDays(*l.Days)
+	}
+	remotes, err := l.repo.Git("remote")
+	if err == nil && strings.TrimSpace(remotes) == "" {
+		branch.what = "those HEAD has, as no remote carries any"
+		return branch
+	}
+	// A remote this clone has never fetched from cannot say what it carries,
+	// which leaves the age.
+	fetched, err := l.repo.Git("for-each-ref", "--count=1", "--format=%(refname)", "refs/remotes")
+	if err == nil && strings.TrimSpace(fetched) != "" {
+		unpushed := span{revs: []string{"HEAD", "--not", "--remotes"},
+			what: "those HEAD has and no remote carries"}
+		if l.countCommits(unpushed.revs) > 0 {
+			return unpushed
+		}
+	}
+	return lastDays(DefaultDays)
+}
+
+func lastDays(n int) span {
+	if n == 0 {
+		return span{revs: []string{"--all"}, what: "every commit on every ref"}
+	}
+	cutoff := time.Now().AddDate(0, 0, -n).UTC().Format(time.RFC3339)
+	return span{revs: []string{"HEAD", "--since=" + cutoff},
+		what: fmt.Sprintf("those HEAD has from the last %d day(s)", n)}
+}
+
+// countCommits is how many commits the revision arguments select, 0 where git
+// cannot say.
+func (l *Linter) countCommits(revs []string) int {
+	out, err := l.repo.Git(append([]string{"rev-list", "--count"}, revs...)...)
+	if err != nil {
+		return 0
+	}
+	n, _ := strconv.Atoi(strings.TrimSpace(out))
+	return n
+}
+
+// coverage is how many commits a span reads, and how many the clone holds on
+// every ref. The first is a subset of the second, so equal counts mean the
+// span left nothing unread.
+func (l *Linter) coverage(s span) (read, held int) {
+	return l.countCommits(s.revs), l.countCommits([]string{"--all"})
+}
+
+// narrowed reports what a span left unread, or nothing where it read every
+// commit. A run that read part of the history must never read as one that
+// read all of it.
+func (l *Linter) narrowed(s span) string {
+	read, held := l.coverage(s)
+	if read == held {
+		return ""
+	}
+	return fmt.Sprintf("read %d of %d commits, %s, and left the rest to the runs that "+
+		"read them before; --days 0 reads every one", read, held, s.what)
+}
+
+// HistoryScan says which commits the diff scan would read.
+func (l *Linter) HistoryScan() string {
+	if _, err := l.repo.Git("rev-parse", "HEAD"); err != nil {
+		return ""
+	}
+	s := l.historySpan()
+	read, held := l.coverage(s)
+	if read == held {
+		return fmt.Sprintf("all %d commits, %s", held, s.what)
+	}
+	return fmt.Sprintf("%d of %d commits, %s", read, held, s.what)
 }
 
 // historyProbes are the high-signal half of the leak patterns, in the syntax
@@ -514,11 +630,16 @@ var historyRules = []rule{{
 		"removed later is still in the blob the earlier commit points at, and a clone taken " +
 		"on the first day keeps it. This reads the text of each diff, so a leak inside a " +
 		"binary blob that was later deleted is past it: for those, check what `git log " +
-		"--diff-filter=A --name-only --all` ever added.",
+		"--diff-filter=A --name-only --all` ever added. A diff read clean stays clean, so " +
+		"a run reads the commits on the checked-out branch that the runs before it did " +
+		"not, and says how many it left: those --since does not reach, the last --days " +
+		"days, those no remote carries, or the last ten days. A new pattern reaches the " +
+		"rest only through --days 0, which reads every commit on every ref.",
 	check: func(l *Linter) []lint.Problem {
 		if _, err := l.repo.Git("rev-parse", "HEAD"); err != nil {
 			return []lint.Problem{lint.Skipf("OSS-708", "no git history")}
 		}
+		span := l.historySpan()
 		type probe struct {
 			pattern string
 			confirm *regexp.Regexp
@@ -538,8 +659,16 @@ var historyRules = []rule{{
 			probes = append(probes, probe{regexp.QuoteMeta(n), nil, "the invoking user's own name"})
 		}
 		var out []lint.Problem
+		if span.stale != "" {
+			out = append(out, lint.Warnf("OSS-708",
+				"--since %s names no commit in this clone, so every commit HEAD has was read",
+				span.stale))
+		}
+		if left := l.narrowed(span); left != "" {
+			out = append(out, lint.Skipf("OSS-708", "%s", left))
+		}
 		for _, p := range probes {
-			args := append([]string{"log", "--all", "--format=%h", "-G" + p.pattern},
+			args := append(append([]string{"log", "--format=%h", "-G" + p.pattern}, span.revs...),
 				l.excludePaths()...)
 			found, err := l.repo.Git(args...)
 			if err != nil || strings.TrimSpace(found) == "" {
