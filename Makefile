@@ -270,8 +270,9 @@ refs: build
 	$(BIN) refs
 
 ## oss: check that this repository can be published
+## OSS_SINCE=<commit> reads only the history after it, as CI passes it.
 oss: build
-	$(BIN) oss
+	$(BIN) oss $(if $(OSS_SINCE),--since $(OSS_SINCE))
 
 ## surface: check the docs against the binary, the code and the build
 surface: build
